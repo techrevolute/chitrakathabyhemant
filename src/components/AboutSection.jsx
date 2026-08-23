@@ -1,7 +1,20 @@
 import React from 'react';
-import { Award, MapPin, Target, Eye, CheckCircle2, Sparkles } from 'lucide-react';
+import { Target, Eye, MapPin, Sparkles } from 'lucide-react';
+import { appendCacheBuster } from '../lib/supabase';
 
-export default function AboutSection({ stats, t }) {
+export default function AboutSection({ aboutData, siteImages = [], stats, t }) {
+  // Find dynamic about image from siteImages or aboutData
+  const dynamicAboutImage = siteImages.find(img => img.section === 'about' && img.is_active !== false)?.image_url
+    || aboutData?.profileImage
+    || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000';
+
+  const displayImage = appendCacheBuster(dynamicAboutImage);
+  const ownerName = aboutData?.ownerName || 'Hemant Mandawade';
+  const experienceYears = aboutData?.experience || '12+ Years';
+  const storyText = aboutData?.story || t.about.story;
+  const missionText = aboutData?.mission || t.about.missionText;
+  const visionText = aboutData?.vision || t.about.visionText;
+
   return (
     <section id="about" className="py-24 bg-[#FAF7F2]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,23 +37,23 @@ export default function AboutSection({ stats, t }) {
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-stone-200 aspect-[3/4]">
               <img
-                src="https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000"
-                alt="Hemant Mandawade - Lead Photographer"
-                className="w-full h-full object-cover"
+                src={displayImage}
+                alt={`${ownerName} - Lead Photographer`}
+                className="w-full h-full object-cover transition-opacity duration-300"
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               
               <div className="absolute bottom-6 left-6 right-6 text-white">
                 <span className="text-xs uppercase tracking-widest text-amber-300 font-bold block mb-1">FOUNDER & LEAD PHOTOGRAPHER</span>
-                <h3 className="font-serif text-2xl font-bold">Hemant Mandawade</h3>
-                <p className="text-xs text-stone-300 mt-1">12+ Years Master Photography Experience</p>
+                <h3 className="font-serif text-2xl font-bold">{ownerName}</h3>
+                <p className="text-xs text-stone-300 mt-1">{experienceYears} Master Photography Experience</p>
               </div>
             </div>
 
             {/* Experience Floating Badge */}
             <div className="absolute -bottom-6 -right-6 bg-[#8B0000] text-white p-6 rounded-2xl shadow-xl hidden sm:block">
-              <div className="font-serif text-4xl font-bold">12+</div>
+              <div className="font-serif text-4xl font-bold">{experienceYears.replace(/\D/g, '') || '12'}+</div>
               <div className="text-[11px] uppercase tracking-wider font-semibold opacity-90">Years Of Trust</div>
             </div>
           </div>
@@ -57,7 +70,7 @@ export default function AboutSection({ stats, t }) {
             </h3>
 
             <p className="text-sm sm:text-base text-[#66625C] font-light leading-relaxed">
-              {t.about.story}
+              {storyText}
             </p>
 
             {/* Mission & Vision Cards */}
@@ -68,7 +81,7 @@ export default function AboutSection({ stats, t }) {
                   <span>{t.about.missionTitle}</span>
                 </div>
                 <p className="text-xs text-[#66625C] leading-relaxed font-light">
-                  {t.about.missionText}
+                  {missionText}
                 </p>
               </div>
 
@@ -78,7 +91,7 @@ export default function AboutSection({ stats, t }) {
                   <span>{t.about.visionTitle}</span>
                 </div>
                 <p className="text-xs text-[#66625C] leading-relaxed font-light">
-                  {t.about.visionText}
+                  {visionText}
                 </p>
               </div>
             </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Globe, MessageCircle, Menu, X, ShieldCheck, Calendar, Phone } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/initialData';
 
-export default function Navbar({ lang, setLang, t, onOpenBooking, onOpenAdmin, activePage, setActivePage }) {
+export default function Navbar({ lang, setLang, t, logoUrl = '', onOpenBooking, onOpenAdmin, activePage, setActivePage }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -57,23 +57,29 @@ export default function Navbar({ lang, setLang, t, onOpenBooking, onOpenAdmin, a
           onClick={() => handleNavClick('home')} 
           className="flex items-center gap-3 text-left group cursor-pointer focus:outline-none"
         >
-          <div className={`p-2.5 rounded-full transition-all duration-300 ${
-            scrolled ? 'bg-[#8B0000] text-white shadow-sm' : 'bg-white/20 backdrop-blur-md text-white group-hover:bg-[#8B0000]'
-          }`}>
-            <Camera className="w-5 h-5" />
-          </div>
-          <div>
-            <span className={`block font-serif text-xl sm:text-2xl font-bold tracking-wider leading-none ${
-              scrolled ? 'text-[#1C1C1C]' : 'text-white'
-            }`}>
-              CHITRAKATHA
-            </span>
-            <span className={`block text-[10px] sm:text-xs font-sans tracking-[0.25em] uppercase font-medium mt-0.5 ${
-              scrolled ? 'text-[#8B0000]' : 'text-amber-200'
-            }`}>
-              BY HEMANT
-            </span>
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Chitrakatha by Hemant Logo" className="h-10 w-auto object-contain transition-transform group-hover:scale-105" />
+          ) : (
+            <>
+              <div className={`p-2.5 rounded-full transition-all duration-300 ${
+                scrolled ? 'bg-[#8B0000] text-white shadow-sm' : 'bg-white/20 backdrop-blur-md text-white group-hover:bg-[#8B0000]'
+              }`}>
+                <Camera className="w-5 h-5" />
+              </div>
+              <div>
+                <span className={`block font-serif text-xl sm:text-2xl font-bold tracking-wider leading-none ${
+                  scrolled ? 'text-[#1C1C1C]' : 'text-white'
+                }`}>
+                  CHITRAKATHA
+                </span>
+                <span className={`block text-[10px] sm:text-xs font-sans tracking-[0.25em] uppercase font-medium mt-0.5 ${
+                  scrolled ? 'text-[#8B0000]' : 'text-amber-200'
+                }`}>
+                  BY HEMANT
+                </span>
+              </div>
+            </>
+          )}
         </button>
 
         {/* Desktop Navigation Center */}

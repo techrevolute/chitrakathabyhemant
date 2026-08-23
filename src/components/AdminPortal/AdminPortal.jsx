@@ -31,6 +31,9 @@ export default function AdminPortal({
   faqs, setFaqs,
   bookings, setBookings,
   lang, setLang,
+  siteImages, setSiteImages,
+  aboutData, setAboutData,
+  logoUrl, setLogoUrl,
   onResetAll
 }) {
   // Authentication State
@@ -115,13 +118,20 @@ export default function AdminPortal({
             <AdminHomepageEditor
               heroData={heroData}
               setHeroData={setHeroData}
+              siteImages={siteImages}
+              setSiteImages={setSiteImages}
               portfolio={portfolio}
               setPortfolio={setPortfolio}
             />
           )}
 
           {activeTab === 'about' && (
-            <AdminAboutEditor />
+            <AdminAboutEditor
+              aboutData={aboutData}
+              setAboutData={setAboutData}
+              siteImages={siteImages}
+              setSiteImages={setSiteImages}
+            />
           )}
 
           {activeTab === 'services' && (
@@ -182,7 +192,18 @@ export default function AdminPortal({
           )}
 
           {activeTab === 'media' && (
-            <AdminMediaLibrary />
+            <AdminMediaLibrary
+              siteImages={siteImages}
+              setSiteImages={setSiteImages}
+              aboutData={aboutData}
+              setAboutData={setAboutData}
+              heroData={heroData}
+              setHeroData={setHeroData}
+              portfolio={portfolio}
+              setPortfolio={setPortfolio}
+              logoUrl={logoUrl}
+              setLogoUrl={setLogoUrl}
+            />
           )}
 
           {activeTab === 'languages' && (

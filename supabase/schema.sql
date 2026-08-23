@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.homepage (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   hero_title TEXT NOT NULL DEFAULT 'Every Moment Has A Story',
   hero_subtitle TEXT NOT NULL DEFAULT 'Professional Wedding, Pre Wedding, Fashion & Cinematic Photography Across Maharashtra.',
-  hero_video_url TEXT DEFAULT 'https://www.w3schools.com/html/mov_bbb.mp4',
+  hero_video_url TEXT DEFAULT 'https://assets.mixkit.co/videos/preview/mixkit-photographer-taking-photos-of-a-bride-and-groom-43889-large.mp4',
   hero_poster_url TEXT DEFAULT 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1920',
   cta_primary_text TEXT DEFAULT 'View Portfolio',
   cta_secondary_text TEXT DEFAULT 'Book Now',
@@ -49,10 +49,6 @@ CREATE TABLE IF NOT EXISTS public.homepage (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
-INSERT INTO public.homepage (id, hero_title, hero_subtitle)
-SELECT uuid_generate_v4(), 'Every Moment Has A Story', 'Professional Wedding, Pre Wedding, Fashion & Cinematic Photography Across Maharashtra.'
-WHERE NOT EXISTS (SELECT 1 FROM public.homepage);
 
 -- ----------------------------------------------------------------------------
 -- 3. ABOUT TABLE
@@ -69,32 +65,24 @@ CREATE TABLE IF NOT EXISTS public.about (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-INSERT INTO public.about (id, owner_name, story, mission, vision)
-SELECT uuid_generate_v4(), 'Hemant Mandawade', 
-'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
-'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
-'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.'
-WHERE NOT EXISTS (SELECT 1 FROM public.about);
-
 -- ----------------------------------------------------------------------------
--- 4. SERVICES TABLE
+-- 4. CENTRALIZED SITE IMAGES TABLE (ALL DYNAMIC WEBSITE MEDIA)
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.services (
+CREATE TABLE IF NOT EXISTS public.site_images (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  details TEXT,
+  section VARCHAR(50) NOT NULL, -- 'hero', 'about', 'sample_shoots', 'reviews', 'logo', 'offerings', 'other'
   image_url TEXT NOT NULL,
-  icon_name TEXT DEFAULT 'Camera',
-  price_starting TEXT DEFAULT 'Contact for Quote',
+  storage_path TEXT,
+  title VARCHAR(255),
+  category VARCHAR(100),
   display_order INT DEFAULT 0,
-  active_status BOOLEAN DEFAULT TRUE,
+  is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ----------------------------------------------------------------------------
--- 5. PORTFOLIO CATEGORIES TABLE
+-- 5. PORTFOLIO CATEGORIES TABLE (DYNAMIC CATEGORIES)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.portfolio_categories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -106,13 +94,19 @@ CREATE TABLE IF NOT EXISTS public.portfolio_categories (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Initial Categories
-INSERT INTO public.portfolio_categories (name, slug) VALUES
-('Wedding', 'wedding'),
-('Pre Wedding', 'pre-wedding'),
-('Fashion', 'fashion'),
-('Drone', 'drone'),
-('Cinematic', 'cinematic')
+-- Initial Dynamic Categories
+INSERT INTO public.portfolio_categories (name, slug, display_order) VALUES
+('Wedding', 'wedding', 1),
+('Pre-Wedding', 'pre-wedding', 2),
+('Engagement', 'engagement', 3),
+('Birthday', 'birthday', 4),
+('Baby Shoot', 'baby-shoot', 5),
+('Maternity', 'maternity', 6),
+('Fashion', 'fashion', 7),
+('Events', 'events', 8),
+('Portrait', 'portrait', 9),
+('Product', 'product', 10),
+('Drone', 'drone', 11)
 ON CONFLICT (name) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
@@ -125,6 +119,7 @@ CREATE TABLE IF NOT EXISTS public.portfolio_media (
   media_type TEXT NOT NULL DEFAULT 'image', -- 'image' or 'video'
   title TEXT NOT NULL,
   url TEXT NOT NULL,
+  storage_path TEXT,
   thumbnail_url TEXT,
   location TEXT DEFAULT 'Maharashtra',
   caption TEXT,
@@ -183,7 +178,7 @@ CREATE TABLE IF NOT EXISTS public.booking_requests (
   preferred_date DATE NOT NULL,
   preferred_time TEXT DEFAULT 'Morning (09:00 AM)',
   message TEXT,
-  status TEXT NOT NULL DEFAULT 'New', -- 'New', 'Pending', 'Confirmed', 'Completed', 'Cancelled'
+  status TEXT NOT NULL DEFAULT 'New',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -203,11 +198,10 @@ CREATE TABLE IF NOT EXISTS public.activity_logs (
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 
--- Enable RLS on all tables
 ALTER TABLE public.website_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.homepage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.about ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_media ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pricing ENABLE ROW LEVEL SECURITY;
@@ -215,24 +209,24 @@ ALTER TABLE public.faqs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.booking_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
--- 1. PUBLIC READ POLICIES (For Website Visitors)
+-- PUBLIC READ POLICIES
 CREATE POLICY "Public Read Website Settings" ON public.website_settings FOR SELECT USING (true);
 CREATE POLICY "Public Read Homepage" ON public.homepage FOR SELECT USING (true);
 CREATE POLICY "Public Read About" ON public.about FOR SELECT USING (true);
-CREATE POLICY "Public Read Services" ON public.services FOR SELECT USING (active_status = true);
+CREATE POLICY "Public Read Site Images" ON public.site_images FOR SELECT USING (is_active = true);
 CREATE POLICY "Public Read Portfolio Categories" ON public.portfolio_categories FOR SELECT USING (active_status = true);
 CREATE POLICY "Public Read Portfolio Media" ON public.portfolio_media FOR SELECT USING (true);
 CREATE POLICY "Public Read Pricing" ON public.pricing FOR SELECT USING (active = true);
 CREATE POLICY "Public Read FAQs" ON public.faqs FOR SELECT USING (hidden = false AND active = true);
 
--- 2. PUBLIC INSERT FOR BOOKINGS (For Visitors to Submit Requests)
+-- PUBLIC INSERT FOR BOOKINGS
 CREATE POLICY "Public Insert Booking Requests" ON public.booking_requests FOR INSERT WITH CHECK (true);
 
--- 3. ADMIN FULL ACCESS POLICIES (Authenticated Admins Only)
+-- ADMIN FULL ACCESS POLICIES
 CREATE POLICY "Admin Full Settings" ON public.website_settings FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admin Full Homepage" ON public.homepage FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admin Full About" ON public.about FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Admin Full Services" ON public.services FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Admin Full Site Images" ON public.site_images FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admin Full Categories" ON public.portfolio_categories FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admin Full Portfolio Media" ON public.portfolio_media FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Admin Full Pricing" ON public.pricing FOR ALL USING (auth.role() = 'authenticated');
@@ -241,16 +235,11 @@ CREATE POLICY "Admin Full Bookings" ON public.booking_requests FOR ALL USING (au
 CREATE POLICY "Admin Full Logs" ON public.activity_logs FOR ALL USING (auth.role() = 'authenticated');
 
 -- ============================================================================
--- STORAGE BUCKETS CONFIGURATION (Run in Supabase Dashboard SQL)
+-- STORAGE BUCKETS CONFIGURATION
 -- ============================================================================
 INSERT INTO storage.buckets (id, name, public) VALUES
+('website-images', 'website-images', true),
 ('logos', 'logos', true),
 ('hero-video', 'hero-video', true),
-('services', 'services', true),
-('portfolio', 'portfolio', true),
-('drone-gallery', 'drone-gallery', true),
-('videos', 'videos', true),
-('pricing', 'pricing', true),
-('website-assets', 'website-assets', true),
-('watermarks', 'watermarks', true)
+('portfolio', 'portfolio', true)
 ON CONFLICT (id) DO NOTHING;

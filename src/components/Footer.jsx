@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Camera, MapPin, Phone, Mail, MessageCircle, ArrowUp, Instagram, Facebook } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/initialData';
 
-export default function Footer({ t, setActivePage, onOpenBooking }) {
+export default function Footer({ logoUrl = '', t, setActivePage, onOpenBooking }) {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
@@ -25,17 +25,23 @@ export default function Footer({ t, setActivePage, onOpenBooking }) {
           {/* Brand Info (2 Columns) */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-full bg-[#8B0000] text-white">
-                <Camera className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="block font-serif text-2xl font-bold tracking-wider leading-none text-white">
-                  CHITRAKATHA
-                </span>
-                <span className="block text-[10px] font-sans tracking-[0.25em] uppercase font-medium text-amber-400 mt-0.5">
-                  BY HEMANT MANDAWADE
-                </span>
-              </div>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="h-12 w-auto object-contain" />
+              ) : (
+                <>
+                  <div className="p-2.5 rounded-full bg-[#8B0000] text-white">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block font-serif text-2xl font-bold tracking-wider leading-none text-white">
+                      CHITRAKATHA
+                    </span>
+                    <span className="block text-[10px] font-sans tracking-[0.25em] uppercase font-medium text-amber-400 mt-0.5">
+                      BY HEMANT MANDAWADE
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             <p className="text-xs sm:text-sm text-stone-400 font-light leading-relaxed max-w-sm">

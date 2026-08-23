@@ -1,8 +1,35 @@
-import React, { useEffect, useRef } from 'react';
-import { ChevronDown, Sparkles, ArrowRight, Shield } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Sparkles, ArrowRight, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
+import { appendCacheBuster } from '../lib/supabase';
 
-export default function Hero({ heroData, t, onOpenBooking, setActivePage }) {
+export default function Hero({ heroData, siteImages = [], t, onOpenBooking, setActivePage }) {
   const videoRef = useRef(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+  // Extract hero slides from siteImages or heroData
+  const heroItems = siteImages.filter(img => img.section === 'hero' && img.is_active !== false);
+  const slides = heroItems.length > 0 
+    ? heroItems.map(item => ({
+        url: appendCacheBuster(item.image_url),
+        title: item.title || heroData?.title || t.hero.title,
+        isVideo: item.image_url?.match(/\.(mp4|webm|mov)(\?.*)?$/i)
+      }))
+    : [{
+        url: appendCacheBuster(heroData?.url || 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'),
+        title: heroData?.title || t.hero.title,
+        isVideo: true
+      }];
+
+  const currentSlide = slides[currentSlideIndex % slides.length] || slides[0];
+
+  // Auto slide interval if multiple hero images/videos exist
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [slides.length]);
 
   const scrollToPortfolio = () => {
     setActivePage('portfolio');
@@ -10,66 +37,39 @@ export default function Hero({ heroData, t, onOpenBooking, setActivePage }) {
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const defaultVideoSrc = 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4';
-  
-  const videoSrc = (heroData?.url && typeof heroData.url === 'string' && !heroData.url.includes('bing.com') && !heroData.url.includes('google.com') && heroData.url.trim() !== '')
-    ? heroData.url
-    : defaultVideoSrc;
-
   useEffect(() => {
-    const playVideo = () => {
-      if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.defaultMuted = true;
-        videoRef.current.playsInline = true;
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn("Autoplay deferred, attempting click handler:", err);
-          });
-        }
-      }
-    };
-
-    playVideo();
-    window.addEventListener('click', playVideo, { once: true });
-    window.addEventListener('touchstart', playVideo, { once: true });
-
-    return () => {
-      window.removeEventListener('click', playVideo);
-      window.removeEventListener('touchstart', playVideo);
-    };
-  }, [videoSrc]);
-
-  const handleVideoError = (e) => {
-    console.warn("Background video load error, using default 4K stream.");
-    if (e.target) {
-      e.target.src = defaultVideoSrc;
-      e.target.load();
-      e.target.play().catch(() => {});
+    if (currentSlide.isVideo && videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.defaultMuted = true;
+      videoRef.current.playsInline = true;
+      videoRef.current.play().catch(() => {});
     }
-  };
+  }, [currentSlide]);
 
   return (
     <section id="home" className="relative w-full h-screen min-h-[650px] flex items-center justify-center overflow-hidden bg-black">
       
-      {/* Cinematic Photography Background Video */}
-      <video
-        key={videoSrc}
-        ref={videoRef}
-        autoPlay={true}
-        loop={true}
-        muted={true}
-        playsInline={true}
-        preload="auto"
-        onCanPlay={(e) => e.target.play().catch(() => {})}
-        onLoadedData={(e) => e.target.play().catch(() => {})}
-        onError={handleVideoError}
-        className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-1000 pointer-events-none"
-      >
-        <source src={videoSrc} type="video/mp4" />
-        <source src={defaultVideoSrc} type="video/mp4" />
-      </video>
+      {/* Dynamic Background Media (Video or Image Slider) */}
+      {currentSlide.isVideo ? (
+        <video
+          key={currentSlide.url}
+          ref={videoRef}
+          autoPlay={true}
+          loop={true}
+          muted={true}
+          playsInline={true}
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-1000 pointer-events-none"
+        >
+          <source src={currentSlide.url} type="video/mp4" />
+        </video>
+      ) : (
+        <div
+          key={currentSlide.url}
+          className="absolute inset-0 w-full h-full bg-cover bg-center transition-all duration-1000 scale-105"
+          style={{ backgroundImage: `url(${currentSlide.url})` }}
+        />
+      )}
 
       {/* Cinematic Dark Vignette & Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#FAF7F2] via-black/40 to-black/70 z-10" />
@@ -120,8 +120,41 @@ export default function Hero({ heroData, t, onOpenBooking, setActivePage }) {
 
       </div>
 
+      {/* Hero Slider Dots & Navigation Controls (If multiple slides exist) */}
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={() => setCurrentSlideIndex((prev) => (prev - 1 + slides.length) % slides.length)}
+            className="absolute left-4 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-sm border border-white/20 transition-all"
+            aria-label="Previous Slide"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setCurrentSlideIndex((prev) => (prev + 1) % slides.length)}
+            className="absolute right-4 z-20 p-2.5 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-sm border border-white/20 transition-all"
+            aria-label="Next Slide"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+            {slides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentSlideIndex(i)}
+                className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  i === currentSlideIndex % slides.length ? 'bg-amber-400 w-8' : 'bg-white/40 hover:bg-white'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Animated Scroll Indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 text-white/80 cursor-pointer hover:text-white transition-colors" onClick={scrollToPortfolio}>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 text-white/80 cursor-pointer hover:text-white transition-colors" onClick={scrollToPortfolio}>
         <span className="text-[11px] font-sans tracking-[0.2em] uppercase font-medium">{t.hero.scroll}</span>
         <div className="p-1 rounded-full border border-white/30 animate-bounce">
           <ChevronDown className="w-4 h-4" />

@@ -12,6 +12,17 @@ export const BUSINESS_INFO = {
   facebook: 'https://facebook.com/chitrakathabyhemant'
 };
 
+export const INITIAL_LOGO_URL = '';
+
+export const INITIAL_ABOUT_DATA = {
+  ownerName: 'Hemant Mandawade',
+  experience: '12+ Years',
+  profileImage: 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000',
+  story: 'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
+  mission: 'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
+  vision: 'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.'
+};
+
 export const INITIAL_STATS = [
   { id: 'years', value: 12, label: 'Years Experience', suffix: '+' },
   { id: 'projects', value: 550, label: 'Weddings & Shoots', suffix: '+' },
@@ -35,53 +46,24 @@ export const INITIAL_BROCHURES = [
 ];
 
 export const INITIAL_CATEGORIES = [
-  {
-    id: 'cat-wedding',
-    name: 'Wedding Photography',
-    slug: 'wedding-photography',
-    coverImage: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800',
-    displayOrder: 1,
-    hidden: false
-  },
-  {
-    id: 'cat-prewedding',
-    name: 'Pre-Wedding',
-    slug: 'pre-wedding',
-    coverImage: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800',
-    displayOrder: 2,
-    hidden: false
-  },
-  {
-    id: 'cat-fashion',
-    name: 'Fashion Shoot',
-    slug: 'fashion-shoot',
-    coverImage: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=800',
-    displayOrder: 3,
-    hidden: false
-  },
-  {
-    id: 'cat-drone',
-    name: 'Drone Photography',
-    slug: 'drone-photography',
-    coverImage: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=800',
-    displayOrder: 4,
-    hidden: false
-  },
-  {
-    id: 'cat-cinematic',
-    name: 'Cinematic Video',
-    slug: 'cinematic-video',
-    coverImage: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800',
-    displayOrder: 5,
-    hidden: false
-  }
+  { id: 'cat-wedding', name: 'Wedding', slug: 'wedding', coverImage: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800', displayOrder: 1, hidden: false },
+  { id: 'cat-prewedding', name: 'Pre-Wedding', slug: 'pre-wedding', coverImage: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800', displayOrder: 2, hidden: false },
+  { id: 'cat-engagement', name: 'Engagement', slug: 'engagement', coverImage: 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&q=80&w=800', displayOrder: 3, hidden: false },
+  { id: 'cat-birthday', name: 'Birthday', slug: 'birthday', coverImage: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&q=80&w=800', displayOrder: 4, hidden: false },
+  { id: 'cat-babyshoot', name: 'Baby Shoot', slug: 'baby-shoot', coverImage: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&q=80&w=800', displayOrder: 5, hidden: false },
+  { id: 'cat-maternity', name: 'Maternity', slug: 'maternity', coverImage: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&q=80&w=800', displayOrder: 6, hidden: false },
+  { id: 'cat-fashion', name: 'Fashion', slug: 'fashion', coverImage: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=800', displayOrder: 7, hidden: false },
+  { id: 'cat-events', name: 'Events', slug: 'events', coverImage: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=800', displayOrder: 8, hidden: false },
+  { id: 'cat-portrait', name: 'Portrait', slug: 'portrait', coverImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800', displayOrder: 9, hidden: false },
+  { id: 'cat-product', name: 'Product', slug: 'product', coverImage: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800', displayOrder: 10, hidden: false },
+  { id: 'cat-drone', name: 'Drone', slug: 'drone', coverImage: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=800', displayOrder: 11, hidden: false }
 ];
 
 export const INITIAL_PORTFOLIO = [
   {
     id: 'img-1',
     categoryId: 'cat-wedding',
-    category: 'Wedding Photography',
+    category: 'Wedding',
     title: 'Royal Heritage Wedding at Pune Palace',
     description: 'Sacred rituals and grand evening reception captured at Oxford Golf Resort, Pune.',
     image: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=1200',
@@ -107,6 +89,21 @@ export const INITIAL_PORTFOLIO = [
     hidden: false,
     watermarked: true,
     displayOrder: 2
+  },
+  {
+    id: 'img-3',
+    categoryId: 'cat-engagement',
+    category: 'Engagement',
+    title: 'Romantic Ring Ceremony in Nashik',
+    description: 'Candid engagement moments captured amidst vineyard landscapes.',
+    image: 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Romantic Ring Ceremony Nashik',
+    location: 'Nashik, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 3
   }
 ];
 
@@ -130,7 +127,7 @@ export const INITIAL_VIDEOS = [
 export const INITIAL_PACKAGES = [
   {
     id: 'pkg-wedding-1',
-    category: 'Wedding Photography',
+    category: 'Wedding',
     name: 'Royal Heritage Wedding Package',
     image: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=1000',
     description: 'Comprehensive multi-day wedding coverage capturing sacred rituals, candid emotions, and grand celebrations.',
@@ -169,7 +166,7 @@ export const INITIAL_BOOKINGS = [
     phone: '9822012345',
     email: 'rahul.d@gmail.com',
     city: 'Pune',
-    eventType: 'Wedding Photography',
+    eventType: 'Wedding',
     date: '2026-11-20',
     time: 'Morning (09:00 AM)',
     notes: '2-Day Wedding at Oxford Golf Resort, Pune. Need drone and luxury albums.',
@@ -177,10 +174,6 @@ export const INITIAL_BOOKINGS = [
     status: 'Confirmed',
     createdAt: '2026-08-01'
   }
-];
-
-export const INITIAL_INSTAGRAM = [
-  { id: 1, image: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=500', likes: '1.2k' }
 ];
 
 export const INITIAL_SERVICES = [
@@ -209,3 +202,33 @@ export const INITIAL_HERO_VIDEO = {
   title: 'Every Moment Has A Story',
   subtitle: 'Professional Wedding, Pre-Wedding, Fashion & Cinematic Photography Across Maharashtra.'
 };
+
+export const INITIAL_SITE_IMAGES = [
+  {
+    id: 'img-about-main',
+    section: 'about',
+    image_url: 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000',
+    title: 'Hemant Mandawade Profile Photo',
+    category: 'About Me',
+    display_order: 1,
+    is_active: true
+  },
+  {
+    id: 'img-hero-1',
+    section: 'hero',
+    image_url: 'https://assets.mixkit.co/videos/preview/mixkit-photographer-taking-photos-of-a-bride-and-groom-43889-large.mp4',
+    title: 'Hero Background Video / Image 1',
+    category: 'Hero',
+    display_order: 1,
+    is_active: true
+  },
+  {
+    id: 'img-logo-main',
+    section: 'logo',
+    image_url: '',
+    title: 'Website Main Logo',
+    category: 'Logo',
+    display_order: 1,
+    is_active: true
+  }
+];

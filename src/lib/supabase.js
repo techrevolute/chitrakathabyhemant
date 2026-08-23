@@ -11,6 +11,16 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+// Helper to append cache-busting timestamp to URLs
+export function appendCacheBuster(url) {
+  if (!url || typeof url !== 'string' || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const timestamp = Date.now();
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}v=${timestamp}`;
+}
+
 // ============================================================================
 // HYBRID DATA SERVICE ENGINE (SUPABASE + LOCALSTORAGE FALLBACK)
 // ============================================================================
@@ -37,7 +47,7 @@ export async function apiCreateBooking(bookingData) {
 
     if (error) {
       console.error('Supabase Booking Insert Error:', error);
-    } else {
+    } else if (data && data.length > 0) {
       return data[0];
     }
   }
@@ -86,72 +96,150 @@ export async function apiFetchBookings() {
 }
 
 /**
- * Update Booking Status (Admin Only)
+ * Upload File to Supabase Storage Bucket or return persistent Data URL
  */
-export async function apiUpdateBookingStatus(bookingId, status) {
-  if (isSupabaseConfigured && supabase) {
-    await supabase
-      .from('booking_requests')
-      .update({ status, updated_at: new Date() })
-      .eq('id', bookingId);
+export async function apiUploadStorageFile(bucketName, file) {
+  if (!file) return null;
+
+  // Convert to Data URL fallback first to ensure instant local availability
+  const readFileAsDataUrl = (fileToRead) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(fileToRead);
+    });
+  };
+
+  let fallbackDataUrl = '';
+  try {
+    fallbackDataUrl = await readFileAsDataUrl(file);
+  } catch (err) {
+    console.warn('FileReader error:', err);
   }
 
-  const saved = JSON.parse(localStorage.getItem('chitrakatha_bookings') || '[]');
-  const updated = saved.map(b => b.id === bookingId ? { ...b, status } : b);
-  localStorage.setItem('chitrakatha_bookings', JSON.stringify(updated));
-  return updated;
-}
-
-/**
- * Fetch Portfolio Items
- */
-export async function apiFetchPortfolio() {
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase
-      .from('portfolio_media')
-      .select('*')
-      .order('display_order', { ascending: true });
+    try {
+      const fileExt = file.name ? file.name.split('.').pop() : 'png';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-    if (!error && data && data.length > 0) {
-      return data.map(p => ({
-        id: p.id,
-        title: p.title,
-        category: p.category_name,
-        image: p.url,
-        location: p.location,
-        featured: p.featured
-      }));
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName || 'website-images')
+        .upload(filePath, file);
+
+      if (!uploadError) {
+        const { data } = supabase.storage
+          .from(bucketName || 'website-images')
+          .getPublicUrl(filePath);
+
+        if (data && data.publicUrl) {
+          return {
+            publicUrl: appendCacheBuster(data.publicUrl),
+            storagePath: filePath
+          };
+        }
+      } else {
+        console.warn('Supabase storage upload error:', uploadError);
+      }
+    } catch (e) {
+      console.warn('Supabase storage upload exception:', e);
     }
   }
 
-  return JSON.parse(localStorage.getItem('chitrakatha_portfolio') || '[]');
+  // Persistent Data URL fallback
+  return {
+    publicUrl: fallbackDataUrl,
+    storagePath: null
+  };
 }
 
 /**
- * Upload Asset to Supabase Storage Bucket
+ * Fetch All Dynamic Site Images
  */
-export async function apiUploadStorageFile(bucketName, file) {
-  if (!isSupabaseConfigured || !supabase) {
-    // Return mock object URL for local environment preview
-    return URL.createObjectURL(file);
+export async function apiFetchSiteImages(section = null) {
+  if (isSupabaseConfigured && supabase) {
+    let query = supabase.from('site_images').select('*').eq('is_active', true).order('display_order', { ascending: true });
+    if (section) {
+      query = query.eq('section', section);
+    }
+    const { data, error } = await query;
+    if (!error && data && data.length > 0) {
+      return data;
+    }
+  }
+  const local = JSON.parse(localStorage.getItem('chitrakatha_site_images') || '[]');
+  if (section) {
+    return local.filter(img => img.section === section && img.is_active !== false);
+  }
+  return local;
+}
+
+/**
+ * Save / Update Dynamic Site Image
+ */
+export async function apiSaveSiteImage(imageData) {
+  const payload = {
+    section: imageData.section || 'other',
+    image_url: appendCacheBuster(imageData.image_url || imageData.imageUrl),
+    storage_path: imageData.storage_path || imageData.storagePath || null,
+    title: imageData.title || '',
+    category: imageData.category || '',
+    display_order: imageData.display_order || imageData.displayOrder || 0,
+    is_active: imageData.is_active !== undefined ? imageData.is_active : true,
+    updated_at: new Date().toISOString()
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    if (imageData.id && !imageData.id.startsWith('img-local-')) {
+      const { data, error } = await supabase
+        .from('site_images')
+        .update(payload)
+        .eq('id', imageData.id)
+        .select();
+      if (!error && data && data.length > 0) {
+        return data[0];
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('site_images')
+        .insert([payload])
+        .select();
+      if (!error && data && data.length > 0) {
+        return data[0];
+      }
+    }
   }
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `${fileName}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from(bucketName)
-    .upload(filePath, file);
-
-  if (uploadError) {
-    console.error(`Error uploading to ${bucketName}:`, uploadError);
-    return null;
+  // LocalStorage Fallback
+  const saved = JSON.parse(localStorage.getItem('chitrakatha_site_images') || '[]');
+  const newId = imageData.id || `img-local-${Date.now()}`;
+  const record = { id: newId, ...payload, created_at: new Date().toISOString() };
+  
+  const existingIdx = saved.findIndex(item => item.id === newId);
+  if (existingIdx >= 0) {
+    saved[existingIdx] = record;
+  } else {
+    saved.push(record);
   }
 
-  const { data } = supabase.storage
-    .from(bucketName)
-    .getPublicUrl(filePath);
+  localStorage.setItem('chitrakatha_site_images', JSON.stringify(saved));
+  return record;
+}
 
-  return data.publicUrl;
+/**
+ * Delete Dynamic Site Image
+ */
+export async function apiDeleteSiteImage(id, storagePath = null) {
+  if (isSupabaseConfigured && supabase) {
+    if (storagePath) {
+      await supabase.storage.from('website-images').remove([storagePath]);
+    }
+    await supabase.from('site_images').delete().eq('id', id);
+  }
+
+  const saved = JSON.parse(localStorage.getItem('chitrakatha_site_images') || '[]');
+  const filtered = saved.filter(item => item.id !== id);
+  localStorage.setItem('chitrakatha_site_images', JSON.stringify(filtered));
+  return true;
 }

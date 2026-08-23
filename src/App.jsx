@@ -30,10 +30,14 @@ import {
   INITIAL_HERO_VIDEO,
   INITIAL_PACKAGES,
   INITIAL_FAQS,
-  INITIAL_BOOKINGS
+  INITIAL_BOOKINGS,
+  INITIAL_ABOUT_DATA,
+  INITIAL_SITE_IMAGES,
+  INITIAL_LOGO_URL
 } from './data/initialData';
 
 import { TRANSLATIONS } from './data/translations';
+import { apiFetchSiteImages } from './lib/supabase';
 
 export default function App() {
   // Language State (en, mr, hi)
@@ -43,7 +47,27 @@ export default function App() {
   // Active Navigation Page
   const [activePage, setActivePage] = useState('home');
 
-  // Dynamic Content States with LocalStorage Persistence
+  // Dynamic Content States with LocalStorage & Supabase Persistence
+  const [aboutData, setAboutData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chitrakatha_about_data');
+      return saved ? JSON.parse(saved) : INITIAL_ABOUT_DATA;
+    } catch { return INITIAL_ABOUT_DATA; }
+  });
+
+  const [logoUrl, setLogoUrl] = useState(() => {
+    try {
+      return localStorage.getItem('chitrakatha_logo_url') || INITIAL_LOGO_URL;
+    } catch { return INITIAL_LOGO_URL; }
+  });
+
+  const [siteImages, setSiteImages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('chitrakatha_site_images');
+      return saved ? JSON.parse(saved) : INITIAL_SITE_IMAGES;
+    } catch { return INITIAL_SITE_IMAGES; }
+  });
+
   const [categories, setCategories] = useState(() => {
     try {
       const saved = localStorage.getItem('chitrakatha_categories');
@@ -122,13 +146,39 @@ export default function App() {
     } catch { return INITIAL_BOOKINGS; }
   });
 
+  // Fetch initial site images from Supabase if configured
+  useEffect(() => {
+    async function loadRemoteImages() {
+      try {
+        const remoteImgs = await apiFetchSiteImages();
+        if (remoteImgs && remoteImgs.length > 0) {
+          setSiteImages(remoteImgs);
+          const aboutImg = remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
+          if (aboutImg && aboutImg.image_url) {
+            setAboutData(prev => ({ ...prev, profileImage: aboutImg.image_url }));
+          }
+          const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
+          if (logoImg && logoImg.image_url) {
+            setLogoUrl(logoImg.image_url);
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading remote site images:', err);
+      }
+    }
+    loadRemoteImages();
+  }, []);
+
   // Modal Control States
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [adminPortalActive, setAdminPortalActive] = useState(false);
 
-  // Sync state to LocalStorage with Try-Catch Protection
+  // Sync state to LocalStorage with Safe Persistence
   useEffect(() => { try { localStorage.setItem('chitrakatha_lang', lang); } catch {} }, [lang]);
+  useEffect(() => { try { localStorage.setItem('chitrakatha_about_data', JSON.stringify(aboutData)); } catch {} }, [aboutData]);
+  useEffect(() => { try { localStorage.setItem('chitrakatha_logo_url', logoUrl); } catch {} }, [logoUrl]);
+  useEffect(() => { try { localStorage.setItem('chitrakatha_site_images', JSON.stringify(siteImages)); } catch {} }, [siteImages]);
   useEffect(() => { try { localStorage.setItem('chitrakatha_categories', JSON.stringify(categories)); } catch {} }, [categories]);
   useEffect(() => { try { localStorage.setItem('chitrakatha_portfolio', JSON.stringify(portfolio)); } catch {} }, [portfolio]);
   useEffect(() => { try { localStorage.setItem('chitrakatha_videos', JSON.stringify(videos)); } catch {} }, [videos]);
@@ -148,6 +198,9 @@ export default function App() {
   // Reset to Baseline
   const handleResetBaseline = () => {
     if (window.confirm("Reset all CMS updates back to initial default baseline?")) {
+      setAboutData(INITIAL_ABOUT_DATA);
+      setLogoUrl(INITIAL_LOGO_URL);
+      setSiteImages(INITIAL_SITE_IMAGES);
       setCategories(INITIAL_CATEGORIES);
       setPortfolio(INITIAL_PORTFOLIO);
       setVideos(INITIAL_VIDEOS);
@@ -179,6 +232,9 @@ export default function App() {
         faqs={faqs} setFaqs={setFaqs}
         bookings={bookings} setBookings={setBookings}
         lang={lang} setLang={setLang}
+        siteImages={siteImages} setSiteImages={setSiteImages}
+        aboutData={aboutData} setAboutData={setAboutData}
+        logoUrl={logoUrl} setLogoUrl={setLogoUrl}
         onResetAll={handleResetBaseline}
       />
     );
@@ -192,6 +248,7 @@ export default function App() {
         lang={lang}
         setLang={setLang}
         t={t}
+        logoUrl={logoUrl}
         onOpenBooking={() => setBookingModalOpen(true)}
         onOpenAdmin={() => setAdminPortalActive(true)}
         activePage={activePage}
@@ -225,6 +282,7 @@ export default function App() {
           <>
             <Hero
               heroData={heroData}
+              siteImages={siteImages}
               t={t}
               onOpenBooking={() => setBookingModalOpen(true)}
               setActivePage={setActivePage}
@@ -267,6 +325,8 @@ export default function App() {
             />
 
             <AboutSection
+              aboutData={aboutData}
+              siteImages={siteImages}
               stats={stats}
               t={t}
             />
@@ -285,6 +345,7 @@ export default function App() {
       {/* Footer */}
       <Footer
         t={t}
+        logoUrl={logoUrl}
         setActivePage={setActivePage}
         onOpenBooking={() => setBookingModalOpen(true)}
       />

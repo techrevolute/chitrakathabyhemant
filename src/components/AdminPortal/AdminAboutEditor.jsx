@@ -1,43 +1,218 @@
-import React, { useState } from 'react';
-import { Save, Check, User, Image as ImageIcon } from 'lucide-react';
-import { BUSINESS_INFO } from '../../data/initialData';
+import React, { useState, useRef } from 'react';
+import { Save, Check, User, Image as ImageIcon, Upload, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import { apiUploadStorageFile, apiSaveSiteImage, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
 
-export default function AdminAboutEditor() {
+export default function AdminAboutEditor({ aboutData, setAboutData, siteImages = [], setSiteImages }) {
   const [formData, setFormData] = useState({
-    ownerName: BUSINESS_INFO.owner,
-    experience: BUSINESS_INFO.experience,
-    story: 'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
-    mission: 'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
-    vision: 'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.',
-    profileImage: 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000'
+    ownerName: aboutData?.ownerName || 'Hemant Mandawade',
+    experience: aboutData?.experience || '12+ Years',
+    story: aboutData?.story || 'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
+    mission: aboutData?.mission || 'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
+    vision: aboutData?.vision || 'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.',
+    profileImage: aboutData?.profileImage || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000'
   });
 
-  const [saved, setSaved] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  const handleSave = (e) => {
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  // Handle direct file upload from PC
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await apiUploadStorageFile('website-images', file);
+      if (result && result.publicUrl) {
+        const updatedUrl = appendCacheBuster(result.publicUrl);
+        setFormData(prev => ({ ...prev, profileImage: updatedUrl }));
+        
+        // Save to site_images table / state
+        const savedImg = await apiSaveSiteImage({
+          section: 'about',
+          image_url: updatedUrl,
+          storage_path: result.storagePath,
+          title: 'Hemant Mandawade Profile Photo',
+          category: 'About Me',
+          display_order: 1,
+          is_active: true
+        });
+
+        if (setSiteImages) {
+          setSiteImages(prev => {
+            const filtered = prev.filter(img => img.section !== 'about');
+            return [savedImg, ...filtered];
+          });
+        }
+
+        showToast('Image uploaded successfully');
+      }
+    } catch (err) {
+      console.error('File upload error:', err);
+      showToast('Error uploading image file');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Handle replace photo URL
+  const handleReplacePhotoUrl = () => {
+    const newUrl = window.prompt('Enter new Profile Image URL:', formData.profileImage);
+    if (newUrl && newUrl.trim()) {
+      const busterUrl = appendCacheBuster(newUrl.trim());
+      setFormData(prev => ({ ...prev, profileImage: busterUrl }));
+      showToast('Image updated successfully');
+    }
+  };
+
+  // Handle delete photo (resets to default placeholder)
+  const handleDeletePhoto = async () => {
+    if (window.confirm('Delete custom About profile photo and reset to fallback image?')) {
+      const fallbackUrl = 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000';
+      setFormData(prev => ({ ...prev, profileImage: fallbackUrl }));
+      
+      const aboutImg = siteImages.find(img => img.section === 'about');
+      if (aboutImg && aboutImg.id) {
+        await apiDeleteSiteImage(aboutImg.id, aboutImg.storage_path);
+      }
+
+      if (setSiteImages) {
+        setSiteImages(prev => prev.filter(img => img.section !== 'about'));
+      }
+
+      showToast('Image deleted successfully');
+    }
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    const updatedData = { ...formData };
+    
+    // Save to App State
+    if (setAboutData) {
+      setAboutData(updatedData);
+    }
+
+    // Save image to site_images
+    const savedImg = await apiSaveSiteImage({
+      section: 'about',
+      image_url: updatedData.profileImage,
+      title: 'Hemant Mandawade Profile Photo',
+      category: 'About Me',
+      display_order: 1,
+      is_active: true
+    });
+
+    if (setSiteImages) {
+      setSiteImages(prev => {
+        const filtered = prev.filter(img => img.section !== 'about');
+        return [savedImg, ...filtered];
+      });
+    }
+
+    showToast('About Me profile & content saved successfully');
   };
 
   return (
     <div className="space-y-6 text-white max-w-4xl">
       
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept="image/*"
+        className="hidden"
+      />
+
       <div className="flex items-center justify-between border-b border-stone-800 pb-4">
         <div>
-          <h2 className="font-serif text-3xl font-bold">About Page & Founder Bio Editor</h2>
-          <p className="text-xs text-stone-400">Update Hemant Mandawade story, profile image, mission & vision</p>
+          <h2 className="font-serif text-3xl font-bold">About Me & Founder Profile Manager</h2>
+          <p className="text-xs text-stone-400">Manage Hemant Mandawade profile photo, founder biography, mission & vision</p>
         </div>
 
-        {saved && (
+        {toastMessage && (
           <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold animate-fade-in">
-            <Check className="w-4 h-4" /> About Content Saved
+            <Check className="w-4 h-4" /> {toastMessage}
           </span>
         )}
       </div>
 
       <form onSubmit={handleSave} className="bg-[#1C1C1C] rounded-3xl p-8 border border-stone-800 space-y-6 shadow-xl">
         
+        {/* Profile Photo Management Box */}
+        <div className="p-6 bg-stone-900 rounded-2xl border border-stone-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">About Me Profile Photo</h3>
+            <span className="text-[10px] text-stone-400 font-mono">Live Website Dynamic Image</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            {/* Current Image Preview */}
+            <div className="relative group shrink-0">
+              <img
+                src={formData.profileImage}
+                alt="About Profile Preview"
+                className="w-32 h-40 rounded-2xl object-cover border-2 border-stone-700 shadow-md"
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
+                <span className="text-[10px] font-bold text-white uppercase">Preview</span>
+              </div>
+            </div>
+
+            {/* Actions & File Upload */}
+            <div className="flex-1 space-y-3 w-full">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2.5 rounded-xl bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-bold flex items-center gap-2 transition-all shadow-md"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>{uploading ? 'Uploading File...' : 'Upload New Photo from PC'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReplacePhotoUrl}
+                  className="px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold flex items-center gap-1.5 border border-stone-700"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Replace Photo URL</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeletePhoto}
+                  className="px-4 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-200 text-xs font-bold flex items-center gap-1.5 border border-red-800/80"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Photo</span>
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono text-stone-400">Current Image URL (Saved to Supabase / State)</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.profileImage}
+                  onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs font-mono text-stone-300"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bio Details */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Owner / Founder Name</label>
@@ -58,20 +233,6 @@ export default function AdminAboutEditor() {
               value={formData.experience}
               onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-bold text-white"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Profile Image URL</label>
-          <div className="flex items-center gap-4">
-            <img src={formData.profileImage} alt="Profile" className="w-16 h-16 rounded-2xl object-cover border border-stone-700" />
-            <input
-              type="url"
-              required
-              value={formData.profileImage}
-              onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
-              className="flex-1 p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
             />
           </div>
         </div>
@@ -117,7 +278,7 @@ export default function AdminAboutEditor() {
             className="px-8 py-3 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg"
           >
             <Save className="w-4 h-4" />
-            <span>Save About Page</span>
+            <span>Save & Publish About Profile</span>
           </button>
         </div>
 
