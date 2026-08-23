@@ -8,7 +8,6 @@ export default function SocialFeeds() {
 
   // Prepend Vite BASE_URL so image paths work on both local dev server and GitHub Pages subpath (/chitrkatha-by-hemant/)
   const baseUrl = import.meta.env.BASE_URL || '/';
-  const headerImgSrc = `${baseUrl}assets/insta_header_cropped.png`.replace(/\/+/g, '/');
   const feedImgSrc = `${baseUrl}assets/hemant_instagram_feed.png`.replace(/\/+/g, '/');
 
   return (
@@ -78,20 +77,13 @@ export default function SocialFeeds() {
             </div>
           </div>
 
-          {/* SINGLE INSTAGRAM PROFILE CONTENT VIEW */}
+          {/* SINGLE INSTAGRAM PROFILE POSTS FEED VIEW */}
           <a
             href={instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="block relative cursor-pointer group/feed"
           >
-            {/* Profile Header Image */}
-            <img
-              src={headerImgSrc}
-              alt="Hemant Mandawade Official Instagram Profile Header chitrakatha_by_hemant"
-              className="w-full h-auto object-cover border-b border-stone-800"
-            />
-
             {/* Profile Posts Feed Image */}
             <img
               src={feedImgSrc}
