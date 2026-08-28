@@ -1,14 +1,20 @@
 import React from 'react';
 import { Target, Eye, MapPin, Sparkles } from 'lucide-react';
-import { appendCacheBuster } from '../lib/supabase';
+import { appendCacheBuster, handleImageError } from '../lib/supabase';
 
 export default function AboutSection({ aboutData, siteImages = [], stats, t }) {
-  // Find dynamic about image from siteImages or aboutData
-  const dynamicAboutImage = siteImages.find(img => img.section === 'about' && img.is_active !== false)?.image_url
-    || aboutData?.profileImage
-    || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000';
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const defaultAboutImg = `${baseUrl}assets/hemant_about.png`.replace(/\/+/g, '/');
 
-  const displayImage = appendCacheBuster(dynamicAboutImage);
+  let rawImg = aboutData?.profileImage
+    || siteImages.find(img => img.section === 'about' && img.is_active !== false)?.image_url
+    || defaultAboutImg;
+
+  if (rawImg && !rawImg.startsWith('http') && !rawImg.startsWith('data:') && !rawImg.startsWith('/')) {
+    rawImg = `${baseUrl}${rawImg}`.replace(/\/+/g, '/');
+  }
+
+  const displayImage = appendCacheBuster(rawImg);
   const ownerName = aboutData?.ownerName || 'Hemant Mandawade';
   const experienceYears = aboutData?.experience || '12+ Years';
   const storyText = aboutData?.story || t.about.story;
@@ -39,8 +45,8 @@ export default function AboutSection({ aboutData, siteImages = [], stats, t }) {
               <img
                 src={displayImage}
                 alt={`${ownerName} - Lead Photographer`}
+                onError={(e) => handleImageError(e, defaultAboutImg)}
                 className="w-full h-full object-cover transition-opacity duration-300"
-                loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
               

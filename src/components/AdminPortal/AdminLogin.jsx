@@ -3,8 +3,8 @@ import { ShieldCheck, Lock, Mail, Eye, EyeOff, Camera, KeyRound, ArrowRight } fr
 import { BUSINESS_INFO } from '../../data/initialData';
 
 export default function AdminLogin({ onLoginSuccess, onCancel }) {
-  const [email, setEmail] = useState('admin@chitrakathabyhemant.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('Clicksbyhemant5564@gmail.com');
+  const [password, setPassword] = useState('chitrkathabyhemant');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -16,18 +16,21 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
     e.preventDefault();
     setErrorMsg('');
 
-    // Authentication check
-    if ((email === 'admin@chitrakathabyhemant.com' || email === 'clicksbyhemant5564@gmail.com') && password === 'admin123') {
+    // Authentication check for Hemant Mandawade Admin Credentials
+    const cleanEmail = email.trim().toLowerCase();
+    const targetEmail = 'clicksbyhemant5564@gmail.com';
+    const targetPass = 'chitrkathabyhemant';
+
+    if ((cleanEmail === targetEmail || cleanEmail === 'admin@chitrakathabyhemant.com') && password === targetPass) {
       onLoginSuccess({
         email,
         name: BUSINESS_INFO.owner,
         role: 'Administrator',
         rememberMe
       });
-    } else if (password.length < 4) {
-      setErrorMsg('Invalid password. Try demo login button below.');
+    } else if (password !== targetPass) {
+      setErrorMsg('Invalid password. Default password is: chitrkathabyhemant');
     } else {
-      // Auto allow demo access for smooth evaluation
       onLoginSuccess({
         email,
         name: BUSINESS_INFO.owner,
@@ -38,10 +41,10 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
   };
 
   const handleDemoLogin = () => {
-    setEmail('admin@chitrakathabyhemant.com');
-    setPassword('admin123');
+    setEmail('Clicksbyhemant5564@gmail.com');
+    setPassword('chitrkathabyhemant');
     onLoginSuccess({
-      email: 'admin@chitrakathabyhemant.com',
+      email: 'Clicksbyhemant5564@gmail.com',
       name: BUSINESS_INFO.owner,
       role: 'Administrator',
       rememberMe: true
@@ -67,9 +70,11 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
         
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-[#8B0000] text-white flex items-center justify-center mx-auto shadow-lg">
-            <Camera className="w-7 h-7" />
-          </div>
+          <img
+            src={`${import.meta.env.BASE_URL || '/'}assets/chitrakatha_logo.png`.replace(/\/+/g, '/')}
+            alt="Chitrakatha Logo"
+            className="h-16 w-auto object-contain mx-auto filter drop-shadow-lg"
+          />
 
           <h2 className="font-serif text-3xl font-bold tracking-tight text-white mt-3">
             Admin CMS Login
@@ -99,7 +104,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-medium text-white focus:outline-none focus:border-[#8B0000]"
-                placeholder="admin@chitrakathabyhemant.com"
+                placeholder="Clicksbyhemant5564@gmail.com"
               />
             </div>
           </div>
@@ -124,7 +129,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-medium text-white focus:outline-none focus:border-[#8B0000]"
-                placeholder="••••••••"
+                placeholder="chitrkathabyhemant"
               />
               <button
                 type="button"
@@ -165,7 +170,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
               className="w-full py-3 rounded-full bg-white/10 hover:bg-white/20 text-amber-300 text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-white/10"
             >
               <KeyRound className="w-3.5 h-3.5" />
-              <span>1-Click Quick Demo Login</span>
+              <span>1-Click Quick Admin Login</span>
             </button>
 
             <button
@@ -190,7 +195,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
             
             {forgotSuccess ? (
               <div className="p-3 bg-emerald-950 text-emerald-300 text-xs rounded-xl text-center">
-                Reset link sent to your email!
+                Reset link sent to Clicksbyhemant5564@gmail.com!
               </div>
             ) : (
               <form onSubmit={handleForgotSubmit} className="space-y-3">
@@ -199,7 +204,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                   required
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="clicksbyhemant5564@gmail.com"
+                  placeholder="Clicksbyhemant5564@gmail.com"
                   className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
                 />
                 <div className="flex gap-2">

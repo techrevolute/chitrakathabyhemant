@@ -8,16 +8,16 @@ export const BUSINESS_INFO = {
   serviceArea: 'All Over Maharashtra',
   workingMode: 'Available by Appointment',
   googleMapEmbed: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60000!2d74.1950!3d20.5900!2m3!1f0!0!f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bdde6a4c28c8ef3%3A0x6b19a16f2c6e6df6!2sSatana%2C%20Maharashtra%20423301!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin',
-  instagram: 'https://instagram.com/chitrakatha_by_hemant',
+  instagram: 'https://www.instagram.com/chitrakatha_by_hemant?igsi=MWFzenNxZHR3YWdpNg==',
   facebook: 'https://facebook.com/chitrakathabyhemant'
 };
 
-export const INITIAL_LOGO_URL = '';
+export const INITIAL_LOGO_URL = 'assets/chitrakatha_logo.png';
 
 export const INITIAL_ABOUT_DATA = {
   ownerName: 'Hemant Mandawade',
   experience: '12+ Years',
-  profileImage: 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000',
+  profileImage: 'assets/hemant_about.png',
   story: 'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
   mission: 'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
   vision: 'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.'
@@ -60,13 +60,14 @@ export const INITIAL_CATEGORIES = [
 ];
 
 export const INITIAL_PORTFOLIO = [
+  // WEDDING CATEGORY (4 PHOTOS)
   {
-    id: 'img-1',
+    id: 'img-w1',
     categoryId: 'cat-wedding',
     category: 'Wedding',
     title: 'Royal Heritage Wedding at Pune Palace',
     description: 'Sacred rituals and grand evening reception captured at Oxford Golf Resort, Pune.',
-    image: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=1200',
+    image: 'https://drive.google.com/file/d/16i9vvRNKV3PUmx-HzwR87EPSRfz92MTd/view?usp=sharing',
     altText: 'Royal Heritage Wedding at Pune Palace by Hemant Mandawade',
     location: 'Pune, Maharashtra',
     date: 'December 2025',
@@ -76,7 +77,54 @@ export const INITIAL_PORTFOLIO = [
     displayOrder: 1
   },
   {
-    id: 'img-2',
+    id: 'img-w2',
+    categoryId: 'cat-wedding',
+    category: 'Wedding',
+    title: 'Grand Haldi & Sangeet Celebrations',
+    description: 'Vibrant marigold decor and joy-filled Haldi rituals with family.',
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Vibrant Haldi Ceremony by Chitrakatha',
+    location: 'Nashik, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 2
+  },
+  {
+    id: 'img-w3',
+    categoryId: 'cat-wedding',
+    category: 'Wedding',
+    title: 'Maharashtrian Traditional Pheras & Saptapadi',
+    description: 'Sacred fire rituals and emotional Phera moments captured in timeless detail.',
+    image: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Traditional Maharashtrian Wedding Ceremony',
+    location: 'Satana, MH',
+    date: 'November 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 3
+  },
+  {
+    id: 'img-w4',
+    categoryId: 'cat-wedding',
+    category: 'Wedding',
+    title: 'Cinematic Royal Bride Portrait',
+    description: 'Elegant bridal portrait with intricate jewelry and royal wedding attire.',
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Cinematic Bride Portrait by Hemant Mandawade',
+    location: 'Mumbai, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 4
+  },
+
+  // PRE-WEDDING CATEGORY (4 PHOTOS)
+  {
+    id: 'img-pw1',
     categoryId: 'cat-prewedding',
     category: 'Pre-Wedding',
     title: 'Sunset Love Stories in Mahabaleshwar',
@@ -88,10 +136,57 @@ export const INITIAL_PORTFOLIO = [
     featured: true,
     hidden: false,
     watermarked: true,
-    displayOrder: 2
+    displayOrder: 5
   },
   {
-    id: 'img-3',
+    id: 'img-pw2',
+    categoryId: 'cat-prewedding',
+    category: 'Pre-Wedding',
+    title: 'Golden Hour Vineyard Romance in Sula',
+    description: 'Romantic stroll amidst sunlit vineyards and lush green rows.',
+    image: 'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Golden Hour Pre Wedding Vineyard Shoot',
+    location: 'Nashik, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 6
+  },
+  {
+    id: 'img-pw3',
+    categoryId: 'cat-prewedding',
+    category: 'Pre-Wedding',
+    title: 'Lakeside Sunset Reflections',
+    description: 'Serene lakeside shoot with golden sky and reflection aesthetics.',
+    image: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Lakeside Pre Wedding Shoot',
+    location: 'Pawna Lake, MH',
+    date: 'December 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 7
+  },
+  {
+    id: 'img-pw4',
+    categoryId: 'cat-prewedding',
+    category: 'Pre-Wedding',
+    title: 'Heritage Fort & Palatial Architecture',
+    description: 'Royal couple portraits against grand stone arches and carved fort gates.',
+    image: 'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Heritage Fort Pre Wedding Shoot',
+    location: 'Jadhavgadh, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 8
+  },
+
+  // ENGAGEMENT CATEGORY (3 PHOTOS)
+  {
+    id: 'img-eng1',
     categoryId: 'cat-engagement',
     category: 'Engagement',
     title: 'Romantic Ring Ceremony in Nashik',
@@ -103,7 +198,225 @@ export const INITIAL_PORTFOLIO = [
     featured: true,
     hidden: false,
     watermarked: true,
-    displayOrder: 3
+    displayOrder: 9
+  },
+  {
+    id: 'img-eng2',
+    categoryId: 'cat-engagement',
+    category: 'Engagement',
+    title: 'Floral Ring Exchange Moments',
+    description: 'Close-up ring exchange ceremony with glowing stage backdrop.',
+    image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Floral Ring Exchange Engagement',
+    location: 'Pune, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 10
+  },
+  {
+    id: 'img-eng3',
+    categoryId: 'cat-engagement',
+    category: 'Engagement',
+    title: 'Evening Ring Ceremony Reception',
+    description: 'Glamorous evening engagement party with fireworks and champagne toast.',
+    image: 'https://images.unsplash.com/photo-1529636798458-92182e662485?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Engagement Reception Party',
+    location: 'Mumbai, MH',
+    date: 'December 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 11
+  },
+
+  // BABY SHOOT CATEGORY (3 PHOTOS)
+  {
+    id: 'img-baby1',
+    categoryId: 'cat-babyshoot',
+    category: 'Baby Shoot',
+    title: 'Little Prince Newborn Milestone Shoot',
+    description: 'Cute newborn baby portraits with soft pastel props and fluffy blankets.',
+    image: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Newborn Baby Shoot by Chitrakatha',
+    location: 'Satana, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 12
+  },
+  {
+    id: 'img-baby2',
+    categoryId: 'cat-babyshoot',
+    category: 'Baby Shoot',
+    title: 'First Birthday Cake Smash Fun',
+    description: 'Joyous 1st birthday cake smash portraits with colorful balloon arch.',
+    image: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Baby Cake Smash Photography',
+    location: 'Nashik, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 13
+  },
+  {
+    id: 'img-baby3',
+    categoryId: 'cat-babyshoot',
+    category: 'Baby Shoot',
+    title: 'Adorable Baby Smile & Warm Swaddle',
+    description: 'Sweet sleeping baby portrait captured in natural studio light.',
+    image: 'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Adorable Baby Portrait Shoot',
+    location: 'Pune, MH',
+    date: 'November 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 14
+  },
+
+  // MATERNITY CATEGORY (3 PHOTOS)
+  {
+    id: 'img-mat1',
+    categoryId: 'cat-maternity',
+    category: 'Maternity',
+    title: 'Blissful Motherhood Outdoor Portrait',
+    description: 'Graceful maternity gown portrait in golden sunset field.',
+    image: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Maternity Photography by Chitrakatha',
+    location: 'Nashik, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 15
+  },
+  {
+    id: 'img-mat2',
+    categoryId: 'cat-maternity',
+    category: 'Maternity',
+    title: 'Parents-to-Be Warm Embrace',
+    description: 'Heartwarming couple portrait celebrating upcoming parenthood.',
+    image: 'https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Parents to be Maternity Shoot',
+    location: 'Pune, MH',
+    date: 'December 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 16
+  },
+  {
+    id: 'img-mat3',
+    categoryId: 'cat-maternity',
+    category: 'Maternity',
+    title: 'Floral Studio Maternity Glow',
+    description: 'Studio maternity shoot with fresh flower arrangements.',
+    image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Studio Maternity Portrait',
+    location: 'Satana, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 17
+  },
+
+  // FASHION CATEGORY (3 PHOTOS)
+  {
+    id: 'img-fas1',
+    categoryId: 'cat-fashion',
+    category: 'Fashion',
+    title: 'High-Fashion Designer Editorial',
+    description: 'Contemporary ethnic couture model shoot with dramatic lighting.',
+    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&q=80&w=1200',
+    altText: 'High Fashion Editorial Shoot',
+    location: 'Mumbai, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 18
+  },
+  {
+    id: 'img-fas2',
+    categoryId: 'cat-fashion',
+    category: 'Fashion',
+    title: 'Contemporary Saree Lookbook',
+    description: 'Elegant Maharashtrian saree lookbook photography.',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Saree Lookbook Fashion Shoot',
+    location: 'Pune, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 19
+  },
+  {
+    id: 'img-fas3',
+    categoryId: 'cat-fashion',
+    category: 'Fashion',
+    title: 'Urban Street Style Portrait',
+    description: 'Modern urban fashion model portraits with moody tones.',
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Urban Street Style Model Shoot',
+    location: 'Nashik, MH',
+    date: 'December 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 20
+  },
+
+  // DRONE & AERIAL CATEGORY (3 PHOTOS)
+  {
+    id: 'img-[#8B0000]dr1',
+    categoryId: 'cat-drone',
+    category: 'Drone',
+    title: 'Aerial View of Grand Palace Wedding Venue',
+    description: 'DGCA licensed 4K aerial photography of sprawling venue and guests.',
+    image: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Drone Aerial Wedding Venue View',
+    location: 'Pune, MH',
+    date: 'December 2025',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 21
+  },
+  {
+    id: 'img-[#8B0000]dr2',
+    categoryId: 'cat-drone',
+    category: 'Drone',
+    title: 'Top-Down Beach Pre-Wedding Silhouette',
+    description: 'Stunning overhead drone shot of couple walking on sea shore.',
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Top Down Drone Beach Pre Wedding',
+    location: 'Alibaug, MH',
+    date: 'January 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 22
+  },
+  {
+    id: 'img-[#8B0000]dr3',
+    categoryId: 'cat-drone',
+    category: 'Drone',
+    title: 'Misty Sahyadri Mountain Landscape Aerial',
+    description: 'Cinematic mountain valley aerial view during pre-wedding shoot.',
+    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1200',
+    altText: 'Sahyadri Mountain Drone Photography',
+    location: 'Mahabaleshwar, MH',
+    date: 'February 2026',
+    featured: true,
+    hidden: false,
+    watermarked: true,
+    displayOrder: 23
   }
 ];
 

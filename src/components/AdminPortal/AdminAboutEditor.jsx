@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Save, Check, User, Image as ImageIcon, Upload, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
-import { apiUploadStorageFile, apiSaveSiteImage, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
+import { apiUploadStorageFile, apiSaveSiteImage, apiDeleteSiteImage, appendCacheBuster, formatGoogleDriveUrl, handleImageError } from '../../lib/supabase';
 
 export default function AdminAboutEditor({ aboutData, setAboutData, siteImages = [], setSiteImages }) {
   const [formData, setFormData] = useState({
@@ -9,8 +9,19 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
     story: aboutData?.story || 'With over 12 years of capturing couples and grand celebrations across Maharashtra, Chitrakatha by Hemant was founded on a simple philosophy: every glance, tear of joy, and warm embrace deserves to be preserved in timeless cinematic beauty.',
     mission: aboutData?.mission || 'To preserve raw human emotions and sacred rituals beautifully, creating visual legacies that families cherish for generations.',
     vision: aboutData?.vision || 'To set the benchmark for luxury photography in Maharashtra, blending traditional heritage with contemporary cinematic elegance.',
-    profileImage: aboutData?.profileImage || 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000'
+    profileImage: aboutData?.profileImage || 'assets/hemant_about.png'
   });
+
+  // Sync state if aboutData prop changes from parent
+  useEffect(() => {
+    if (aboutData) {
+      setFormData(prev => ({
+        ...prev,
+        ...aboutData,
+        profileImage: aboutData.profileImage || prev.profileImage
+      }));
+    }
+  }, [aboutData]);
 
   const [toastMessage, setToastMessage] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -33,6 +44,11 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
         const updatedUrl = appendCacheBuster(result.publicUrl);
         setFormData(prev => ({ ...prev, profileImage: updatedUrl }));
         
+        // Instantly update parent state so live About section updates immediately!
+        if (setAboutData) {
+          setAboutData(prev => ({ ...prev, profileImage: updatedUrl }));
+        }
+
         // Save to site_images table / state
         const savedImg = await apiSaveSiteImage({
           section: 'about',
@@ -51,32 +67,52 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
           });
         }
 
-        showToast('Image uploaded successfully');
+        showToast('Image uploaded & updated successfully');
       }
     } catch (err) {
       console.error('File upload error:', err);
       showToast('Error uploading image file');
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   // Handle replace photo URL
   const handleReplacePhotoUrl = () => {
-    const newUrl = window.prompt('Enter new Profile Image URL:', formData.profileImage);
+    const newUrl = window.prompt('Enter new Profile Image URL (or Google Drive share link):', formData.profileImage);
     if (newUrl && newUrl.trim()) {
-      const busterUrl = appendCacheBuster(newUrl.trim());
+      const formatted = formatGoogleDriveUrl(newUrl.trim());
+      const busterUrl = appendCacheBuster(formatted);
       setFormData(prev => ({ ...prev, profileImage: busterUrl }));
+      
+      if (setAboutData) {
+        setAboutData(prev => ({ ...prev, profileImage: busterUrl }));
+      }
+
+      apiSaveSiteImage({
+        section: 'about',
+        image_url: busterUrl,
+        title: 'Hemant Mandawade Profile Photo',
+        category: 'About Me',
+        display_order: 1,
+        is_active: true
+      });
+
       showToast('Image updated successfully');
     }
   };
 
   // Handle delete photo (resets to default placeholder)
   const handleDeletePhoto = async () => {
-    if (window.confirm('Delete custom About profile photo and reset to fallback image?')) {
+    if (window.confirm('Delete custom About profile photo and reset to default image?')) {
       const fallbackUrl = 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=1000';
       setFormData(prev => ({ ...prev, profileImage: fallbackUrl }));
       
+      if (setAboutData) {
+        setAboutData(prev => ({ ...prev, profileImage: fallbackUrl }));
+      }
+
       const aboutImg = siteImages.find(img => img.section === 'about');
       if (aboutImg && aboutImg.id) {
         await apiDeleteSiteImage(aboutImg.id, aboutImg.storage_path);
@@ -86,7 +122,7 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
         setSiteImages(prev => prev.filter(img => img.section !== 'about'));
       }
 
-      showToast('Image deleted successfully');
+      showToast('Image deleted & reset to default');
     }
   };
 
@@ -157,8 +193,9 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
             {/* Current Image Preview */}
             <div className="relative group shrink-0">
               <img
-                src={formData.profileImage}
+                src={appendCacheBuster(formData.profileImage)}
                 alt="About Profile Preview"
+                onError={(e) => handleImageError(e)}
                 className="w-32 h-40 rounded-2xl object-cover border-2 border-stone-700 shadow-md"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
@@ -204,7 +241,13 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
                   type="text"
                   required
                   value={formData.profileImage}
-                  onChange={(e) => setFormData({ ...formData, profileImage: e.target.value })}
+                  onChange={(e) => {
+                    const newUrl = e.target.value;
+                    setFormData(prev => ({ ...prev, profileImage: newUrl }));
+                    if (setAboutData) {
+                      setAboutData(prev => ({ ...prev, profileImage: newUrl }));
+                    }
+                  }}
                   className="w-full p-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs font-mono text-stone-300"
                 />
               </div>

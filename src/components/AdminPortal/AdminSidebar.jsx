@@ -5,6 +5,9 @@ import {
 } from 'lucide-react';
 
 export default function AdminSidebar({ activeTab, setActiveTab, onLogout, onCloseMobile }) {
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const logoSrc = `${baseUrl}assets/chitrakatha_logo.png`.replace(/\/+/g, '/');
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
     { id: 'homepage', label: 'Homepage Editor', icon: Home },
@@ -27,10 +30,13 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout, onClos
     <aside className="w-64 h-full bg-[#1A1A1A] border-r border-stone-800 flex flex-col justify-between text-stone-300 font-sans select-none">
       
       {/* Brand Header */}
-      <div className="p-6 border-b border-stone-800 flex items-center justify-between">
-        <div>
-          <span className="text-[10px] font-sans tracking-[0.2em] text-[#8B0000] uppercase font-bold block">CMS PORTAL</span>
-          <h1 className="font-serif text-lg font-bold text-white tracking-wide">Chitrakatha Admin</h1>
+      <div className="p-5 border-b border-stone-800 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img src={logoSrc} alt="Chitrakatha Logo" className="h-8 w-auto object-contain" />
+          <div>
+            <span className="text-[10px] font-sans tracking-[0.2em] text-[#8B0000] uppercase font-bold block">CMS PORTAL</span>
+            <h1 className="font-serif text-sm font-bold text-white tracking-wide">Chitrakatha Admin</h1>
+          </div>
         </div>
         {onCloseMobile && (
           <button onClick={onCloseMobile} className="lg:hidden text-stone-400 hover:text-white p-1">✕</button>
@@ -79,7 +85,7 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout, onClos
           </div>
           <div className="min-w-0 flex-1">
             <h4 className="text-xs font-bold text-white truncate">Hemant Mandawade</h4>
-            <span className="text-[10px] text-stone-400 block truncate">admin@chitrakatha.com</span>
+            <span className="text-[10px] text-stone-400 block truncate">Clicksbyhemant5564@gmail.com</span>
           </div>
         </div>
 

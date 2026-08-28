@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Globe, MessageCircle, Menu, X, ShieldCheck, Calendar, Phone } from 'lucide-react';
+import { Globe, MessageCircle, Menu, X, ShieldCheck, Calendar, Phone } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/initialData';
 
 export default function Navbar({ lang, setLang, t, logoUrl = '', onOpenBooking, onOpenAdmin, activePage, setActivePage }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
+  // Default logo asset path with Vite base url
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const defaultLogo = `${baseUrl}assets/chitrakatha_logo.png`.replace(/\/+/g, '/');
+  const activeLogoSrc = logoUrl || defaultLogo;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,38 +53,36 @@ export default function Navbar({ lang, setLang, t, logoUrl = '', onOpenBooking, 
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
       scrolled 
         ? 'bg-[#FAF7F2]/95 backdrop-blur-md shadow-md py-3 border-b border-[#E6E1DA]' 
-        : 'bg-gradient-to-b from-black/70 via-black/30 to-transparent py-5 text-white'
+        : 'bg-gradient-to-b from-black/70 via-black/30 to-transparent py-4 text-white'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         
-        {/* Brand Logo */}
+        {/* Custom Devanagari Calligraphy Brand Logo */}
         <button 
           onClick={() => handleNavClick('home')} 
           className="flex items-center gap-3 text-left group cursor-pointer focus:outline-none"
         >
-          {logoUrl ? (
-            <img src={logoUrl} alt="Chitrakatha by Hemant Logo" className="h-10 w-auto object-contain transition-transform group-hover:scale-105" />
-          ) : (
-            <>
-              <div className={`p-2.5 rounded-full transition-all duration-300 ${
-                scrolled ? 'bg-[#8B0000] text-white shadow-sm' : 'bg-white/20 backdrop-blur-md text-white group-hover:bg-[#8B0000]'
-              }`}>
-                <Camera className="w-5 h-5" />
-              </div>
-              <div>
-                <span className={`block font-serif text-xl sm:text-2xl font-bold tracking-wider leading-none ${
-                  scrolled ? 'text-[#1C1C1C]' : 'text-white'
-                }`}>
-                  CHITRAKATHA
-                </span>
-                <span className={`block text-[10px] sm:text-xs font-sans tracking-[0.25em] uppercase font-medium mt-0.5 ${
-                  scrolled ? 'text-[#8B0000]' : 'text-amber-200'
-                }`}>
-                  BY HEMANT
-                </span>
-              </div>
-            </>
-          )}
+          <img
+            src={activeLogoSrc}
+            alt="Chitrakatha by Hemant Logo"
+            className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105 filter drop-shadow-md"
+            onError={(e) => {
+              // Fallback to text logo if image fails
+              e.target.style.display = 'none';
+            }}
+          />
+          <div className="hidden sm:block">
+            <span className={`block font-serif text-lg font-bold tracking-wider leading-none ${
+              scrolled ? 'text-[#1C1C1C]' : 'text-white'
+            }`}>
+              CHITRAKATHA
+            </span>
+            <span className={`block text-[9px] font-sans tracking-[0.25em] uppercase font-medium mt-0.5 ${
+              scrolled ? 'text-[#8B0000]' : 'text-amber-200'
+            }`}>
+              BY HEMANT
+            </span>
+          </div>
         </button>
 
         {/* Desktop Navigation Center */}

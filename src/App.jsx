@@ -20,6 +20,7 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminPortal from './components/AdminPortal/AdminPortal';
 
 import {
+  BUSINESS_INFO,
   INITIAL_STATS,
   INITIAL_SERVICES,
   INITIAL_CATEGORIES,
@@ -38,115 +39,33 @@ import {
 
 import { TRANSLATIONS } from './data/translations';
 import { apiFetchSiteImages } from './lib/supabase';
+import { usePersistentState, removePersistentItem } from './lib/storage';
 
 export default function App() {
-  // Language State (en, mr, hi)
-  const [lang, setLang] = useState(() => localStorage.getItem('chitrakatha_lang') || 'en');
+  // Bulletproof Persistent States (Syncs to memory, LocalStorage & IndexedDB)
+  const [lang, setLang] = usePersistentState('chitrakatha_lang', 'en');
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
-  // Active Navigation Page
   const [activePage, setActivePage] = useState('home');
 
-  // Dynamic Content States with LocalStorage & Supabase Persistence
-  const [aboutData, setAboutData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_about_data');
-      return saved ? JSON.parse(saved) : INITIAL_ABOUT_DATA;
-    } catch { return INITIAL_ABOUT_DATA; }
-  });
+  const [aboutData, setAboutData] = usePersistentState('chitrakatha_about_data', INITIAL_ABOUT_DATA);
+  const [logoUrl, setLogoUrl] = usePersistentState('chitrakatha_logo_url', INITIAL_LOGO_URL);
+  const [siteImages, setSiteImages] = usePersistentState('chitrakatha_site_images', INITIAL_SITE_IMAGES);
+  const [categories, setCategories] = usePersistentState('chitrakatha_categories', INITIAL_CATEGORIES);
+  const [portfolio, setPortfolio] = usePersistentState('chitrakatha_portfolio', INITIAL_PORTFOLIO);
+  const [videos, setVideos] = usePersistentState('chitrakatha_videos', INITIAL_VIDEOS);
+  const [services, setServices] = usePersistentState('chitrakatha_services', INITIAL_SERVICES);
+  const [businessInfo, setBusinessInfo] = usePersistentState('chitrakatha_business_info', BUSINESS_INFO);
+  const [brochures, setBrochures] = usePersistentState('chitrakatha_brochures', INITIAL_BROCHURES);
+  const [stats, setStats] = usePersistentState('chitrakatha_stats', INITIAL_STATS);
+  const [watermark, setWatermark] = usePersistentState('chitrakatha_watermark', INITIAL_WATERMARK);
+  const [heroData, setHeroData] = usePersistentState('chitrakatha_hero', INITIAL_HERO_VIDEO);
+  const [packages, setPackages] = usePersistentState('chitrakatha_packages', INITIAL_PACKAGES);
+  const [faqs, setFaqs] = usePersistentState('chitrakatha_faqs', INITIAL_FAQS);
+  const [bookings, setBookings] = usePersistentState('chitrakatha_bookings', INITIAL_BOOKINGS);
+  const [driveFolders, setDriveFolders] = usePersistentState('chitrakatha_drive_folders', []);
 
-  const [logoUrl, setLogoUrl] = useState(() => {
-    try {
-      return localStorage.getItem('chitrakatha_logo_url') || INITIAL_LOGO_URL;
-    } catch { return INITIAL_LOGO_URL; }
-  });
-
-  const [siteImages, setSiteImages] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_site_images');
-      return saved ? JSON.parse(saved) : INITIAL_SITE_IMAGES;
-    } catch { return INITIAL_SITE_IMAGES; }
-  });
-
-  const [categories, setCategories] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_categories');
-      return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-    } catch { return INITIAL_CATEGORIES; }
-  });
-
-  const [portfolio, setPortfolio] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_portfolio');
-      return saved ? JSON.parse(saved) : INITIAL_PORTFOLIO;
-    } catch { return INITIAL_PORTFOLIO; }
-  });
-
-  const [videos, setVideos] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_videos');
-      return saved ? JSON.parse(saved) : INITIAL_VIDEOS;
-    } catch { return INITIAL_VIDEOS; }
-  });
-
-  const [brochures, setBrochures] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_brochures');
-      return saved ? JSON.parse(saved) : INITIAL_BROCHURES;
-    } catch { return INITIAL_BROCHURES; }
-  });
-
-  const [stats, setStats] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_stats');
-      return saved ? JSON.parse(saved) : INITIAL_STATS;
-    } catch { return INITIAL_STATS; }
-  });
-
-  const [watermark, setWatermark] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_watermark');
-      return saved ? JSON.parse(saved) : INITIAL_WATERMARK;
-    } catch { return INITIAL_WATERMARK; }
-  });
-
-  const [heroData, setHeroData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_hero');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.url && (parsed.url.includes('bing.com') || parsed.url.includes('google.com'))) {
-          parsed.url = 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4';
-          localStorage.setItem('chitrakatha_hero', JSON.stringify(parsed));
-        }
-        return parsed;
-      }
-      return INITIAL_HERO_VIDEO;
-    } catch { return INITIAL_HERO_VIDEO; }
-  });
-
-  const [packages, setPackages] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_packages');
-      return saved ? JSON.parse(saved) : INITIAL_PACKAGES;
-    } catch { return INITIAL_PACKAGES; }
-  });
-
-  const [faqs, setFaqs] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_faqs');
-      return saved ? JSON.parse(saved) : INITIAL_FAQS;
-    } catch { return INITIAL_FAQS; }
-  });
-
-  const [bookings, setBookings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('chitrakatha_bookings');
-      return saved ? JSON.parse(saved) : INITIAL_BOOKINGS;
-    } catch { return INITIAL_BOOKINGS; }
-  });
-
-  // Fetch initial site images from Supabase if configured
+  // Sync with remote Supabase database if configured
   useEffect(() => {
     async function loadRemoteImages() {
       try {
@@ -173,22 +92,6 @@ export default function App() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [adminPortalActive, setAdminPortalActive] = useState(false);
-
-  // Sync state to LocalStorage with Safe Persistence
-  useEffect(() => { try { localStorage.setItem('chitrakatha_lang', lang); } catch {} }, [lang]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_about_data', JSON.stringify(aboutData)); } catch {} }, [aboutData]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_logo_url', logoUrl); } catch {} }, [logoUrl]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_site_images', JSON.stringify(siteImages)); } catch {} }, [siteImages]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_categories', JSON.stringify(categories)); } catch {} }, [categories]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_portfolio', JSON.stringify(portfolio)); } catch {} }, [portfolio]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_videos', JSON.stringify(videos)); } catch {} }, [videos]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_brochures', JSON.stringify(brochures)); } catch {} }, [brochures]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_stats', JSON.stringify(stats)); } catch {} }, [stats]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_watermark', JSON.stringify(watermark)); } catch {} }, [watermark]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_hero', JSON.stringify(heroData)); } catch {} }, [heroData]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_packages', JSON.stringify(packages)); } catch {} }, [packages]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_faqs', JSON.stringify(faqs)); } catch {} }, [faqs]);
-  useEffect(() => { try { localStorage.setItem('chitrakatha_bookings', JSON.stringify(bookings)); } catch {} }, [bookings]);
 
   // Handler to record new appointment booking
   const handleAddBooking = (newBooking) => {
@@ -227,6 +130,8 @@ export default function App() {
         portfolio={portfolio} setPortfolio={setPortfolio}
         categories={categories} setCategories={setCategories}
         videos={videos} setVideos={setVideos}
+        services={services} setServices={setServices}
+        businessInfo={businessInfo} setBusinessInfo={setBusinessInfo}
         packages={packages} setPackages={setPackages}
         brochures={brochures} setBrochures={setBrochures}
         faqs={faqs} setFaqs={setFaqs}
@@ -235,6 +140,7 @@ export default function App() {
         siteImages={siteImages} setSiteImages={setSiteImages}
         aboutData={aboutData} setAboutData={setAboutData}
         logoUrl={logoUrl} setLogoUrl={setLogoUrl}
+        driveFolders={driveFolders} setDriveFolders={setDriveFolders}
         onResetAll={handleResetBaseline}
       />
     );
@@ -288,6 +194,14 @@ export default function App() {
               setActivePage={setActivePage}
             />
 
+            {/* ABOUT ME SECTION AT TOP */}
+            <AboutSection
+              aboutData={aboutData}
+              siteImages={siteImages}
+              stats={stats}
+              t={t}
+            />
+
             <ExperienceSection
               stats={stats}
               t={t}
@@ -298,7 +212,7 @@ export default function App() {
             />
 
             <ServicesSection
-              services={INITIAL_SERVICES}
+              services={services}
               t={t}
               onOpenBooking={() => setBookingModalOpen(true)}
             />
@@ -322,13 +236,6 @@ export default function App() {
               portfolio={portfolio}
               t={t}
               onOpenBooking={() => setBookingModalOpen(true)}
-            />
-
-            <AboutSection
-              aboutData={aboutData}
-              siteImages={siteImages}
-              stats={stats}
-              t={t}
             />
 
             <SocialFeeds />

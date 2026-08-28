@@ -26,6 +26,8 @@ export default function AdminPortal({
   portfolio, setPortfolio,
   categories, setCategories,
   videos, setVideos,
+  services, setServices,
+  businessInfo, setBusinessInfo,
   packages, setPackages,
   brochures, setBrochures,
   faqs, setFaqs,
@@ -34,6 +36,7 @@ export default function AdminPortal({
   siteImages, setSiteImages,
   aboutData, setAboutData,
   logoUrl, setLogoUrl,
+  driveFolders, setDriveFolders,
   onResetAll
 }) {
   // Authentication State
@@ -135,7 +138,10 @@ export default function AdminPortal({
           )}
 
           {activeTab === 'services' && (
-            <AdminServicesEditor />
+            <AdminServicesEditor
+              services={services}
+              setServices={setServices}
+            />
           )}
 
           {activeTab === 'portfolio' && (
@@ -146,6 +152,8 @@ export default function AdminPortal({
               setCategories={setCategories}
               watermark={watermark}
               setWatermark={setWatermark}
+              driveFolders={driveFolders}
+              setDriveFolders={setDriveFolders}
             />
           )}
 
@@ -214,7 +222,10 @@ export default function AdminPortal({
           )}
 
           {activeTab === 'settings' && (
-            <AdminSettings />
+            <AdminSettings
+              businessInfo={businessInfo}
+              setBusinessInfo={setBusinessInfo}
+            />
           )}
 
           {activeTab === 'backup' && (

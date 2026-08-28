@@ -1,13 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Save, Check } from 'lucide-react';
 import { BUSINESS_INFO } from '../../data/initialData';
 
-export default function AdminSettings() {
-  const [formData, setFormData] = useState({ ...BUSINESS_INFO });
+export default function AdminSettings({ businessInfo = BUSINESS_INFO, setBusinessInfo }) {
+  const [formData, setFormData] = useState({ ...businessInfo });
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (businessInfo) {
+      setFormData({ ...businessInfo });
+    }
+  }, [businessInfo]);
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (setBusinessInfo) {
+      setBusinessInfo({ ...formData });
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -23,7 +32,7 @@ export default function AdminSettings() {
 
         {saved && (
           <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold animate-fade-in">
-            <Check className="w-4 h-4" /> Global Settings Saved
+            <Check className="w-4 h-4" /> Global Settings Saved Live
           </span>
         )}
       </div>
@@ -36,7 +45,7 @@ export default function AdminSettings() {
             <input
               type="text"
               required
-              value={formData.name}
+              value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-serif font-bold text-white"
             />
@@ -47,7 +56,7 @@ export default function AdminSettings() {
             <input
               type="text"
               required
-              value={formData.owner}
+              value={formData.owner || ''}
               onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-bold text-white"
             />
@@ -58,7 +67,7 @@ export default function AdminSettings() {
             <input
               type="text"
               required
-              value={formData.phone}
+              value={formData.phone || ''}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono font-bold text-white"
             />
@@ -69,7 +78,7 @@ export default function AdminSettings() {
             <input
               type="email"
               required
-              value={formData.email}
+              value={formData.email || ''}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
             />
@@ -80,7 +89,7 @@ export default function AdminSettings() {
             <input
               type="text"
               required
-              value={formData.office}
+              value={formData.office || ''}
               onChange={(e) => setFormData({ ...formData, office: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
             />
@@ -91,7 +100,7 @@ export default function AdminSettings() {
             <input
               type="text"
               required
-              value={formData.serviceArea}
+              value={formData.serviceArea || ''}
               onChange={(e) => setFormData({ ...formData, serviceArea: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
             />
@@ -101,7 +110,7 @@ export default function AdminSettings() {
             <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Instagram Profile Link</label>
             <input
               type="url"
-              value={formData.instagram}
+              value={formData.instagram || ''}
               onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
             />
@@ -111,7 +120,7 @@ export default function AdminSettings() {
             <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Facebook Page Link</label>
             <input
               type="url"
-              value={formData.facebook}
+              value={formData.facebook || ''}
               onChange={(e) => setFormData({ ...formData, facebook: e.target.value })}
               className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
             />

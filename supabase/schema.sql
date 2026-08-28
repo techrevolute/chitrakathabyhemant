@@ -110,6 +110,36 @@ INSERT INTO public.portfolio_categories (name, slug, display_order) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
+-- SHOOT CATEGORIES TABLE
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.shoot_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
+  cover_image TEXT,
+  description TEXT,
+  display_order INT DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ----------------------------------------------------------------------------
+-- SHOOT IMAGES TABLE
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.shoot_images (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  category_id UUID REFERENCES public.shoot_categories(id) ON DELETE CASCADE,
+  image_url TEXT NOT NULL,
+  storage_path TEXT,
+  title TEXT,
+  display_order INT DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ----------------------------------------------------------------------------
 -- 6. PORTFOLIO MEDIA TABLE
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.portfolio_media (

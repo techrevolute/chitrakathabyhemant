@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Layers, Check, Eye, EyeOff } from 'lucide-react';
 import { INITIAL_SERVICES } from '../../data/initialData';
 
-export default function AdminServicesEditor() {
-  const [services, setServices] = useState(INITIAL_SERVICES);
+export default function AdminServicesEditor({ services = INITIAL_SERVICES, setServices }) {
   const [newService, setNewService] = useState({
     title: '',
     description: '',
@@ -11,6 +10,11 @@ export default function AdminServicesEditor() {
     priceStarting: 'Contact for Quote'
   });
   const [saved, setSaved] = useState(false);
+
+  const triggerSaved = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -21,14 +25,18 @@ export default function AdminServicesEditor() {
       icon: 'Camera',
       details: 'Custom service package details.'
     };
-    setServices([item, ...services]);
+    if (setServices) {
+      setServices([item, ...services]);
+    }
     setNewService({ title: '', description: '', image: '', priceStarting: 'Contact for Quote' });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    triggerSaved();
   };
 
   const handleDelete = (id) => {
-    setServices(services.filter(s => s.id !== id));
+    if (setServices) {
+      setServices(services.filter(s => s.id !== id));
+    }
+    triggerSaved();
   };
 
   return (
@@ -42,7 +50,7 @@ export default function AdminServicesEditor() {
 
         {saved && (
           <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold animate-fade-in">
-            <Check className="w-4 h-4" /> Services Saved
+            <Check className="w-4 h-4" /> Services Saved Live
           </span>
         )}
       </div>
@@ -87,7 +95,7 @@ export default function AdminServicesEditor() {
 
         <button
           type="submit"
-          className="px-6 py-2.5 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider"
+          className="px-6 py-2.5 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider shadow-lg"
         >
           Add Service
         </button>
@@ -96,15 +104,19 @@ export default function AdminServicesEditor() {
       {/* Services List */}
       <div className="space-y-3">
         {services.map((svc) => (
-          <div key={svc.id} className="p-4 bg-[#1C1C1C] rounded-2xl border border-stone-800 flex items-center gap-4">
+          <div key={svc.id} className="p-4 bg-[#1C1C1C] rounded-2xl border border-stone-800 flex items-center gap-4 shadow-md">
             <img src={svc.image} alt={svc.title} className="w-16 h-16 rounded-xl object-cover" />
             <div className="flex-1 min-w-0">
               <h4 className="font-serif text-lg font-bold text-white truncate">{svc.title}</h4>
               <p className="text-xs text-stone-400 truncate">{svc.description}</p>
+              {svc.priceStarting && (
+                <span className="text-[11px] font-mono text-amber-400 font-bold block mt-0.5">Starting: {svc.priceStarting}</span>
+              )}
             </div>
             <button
               onClick={() => handleDelete(svc.id)}
-              className="p-2 text-red-400 hover:bg-red-950 rounded-xl"
+              className="p-2 text-red-400 hover:bg-red-950 rounded-xl transition-colors"
+              title="Delete Service"
             >
               <Trash2 className="w-4 h-4" />
             </button>
