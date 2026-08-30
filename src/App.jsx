@@ -189,9 +189,30 @@ export default function App() {
           }
 
           const aboutImg = remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
-          if (aboutImg && aboutImg.image_url) {
-            setAboutData(prev => ({ ...prev, profileImage: aboutImg.image_url }));
+          if (aboutImg) {
+            setAboutData(prev => ({
+              ...prev,
+              ...(aboutImg.data || {}),
+              profileImage: aboutImg.image_url || prev.profileImage
+            }));
           }
+
+          // Remote Packages Sync
+          const remotePackages = remoteImgs
+            .filter(img => img.section === 'package' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              name: img.title || 'Photography Package',
+              category: img.category || 'Wedding Photography',
+              image: img.image_url,
+              description: 'Comprehensive photography & film package.',
+              price: 'Get Quote',
+              features: ['Lead Photographers', '4K Film']
+            }));
+          if (remotePackages.length > 0) {
+            setPackages(remotePackages);
+          }
+
           const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
           if (logoImg && logoImg.image_url) {
             setLogoUrl(logoImg.image_url);

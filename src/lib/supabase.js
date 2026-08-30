@@ -461,13 +461,16 @@ export async function apiFetchSiteImages(section = null) {
 }
 
 /**
- * Save / Update Dynamic Site Image
+ * Save / Update Dynamic Site Image & Content Payload
  */
 export async function apiSaveSiteImage(imageData) {
   const rawUrl = imageData.image_url || imageData.imageUrl || '';
-  const formattedUrl = appendCacheBuster(rawUrl);
+  const isVideo = Boolean(rawUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)) || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:video');
+  const formattedUrl = isVideo ? formatGoogleDriveUrl(rawUrl) : appendCacheBuster(rawUrl);
+  const recordId = imageData.id || `${imageData.section || 'img'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
   const payload = {
+    id: recordId,
     section: imageData.section || 'other',
     image_url: formattedUrl,
     storage_path: imageData.storage_path || imageData.storagePath || null,
@@ -475,36 +478,32 @@ export async function apiSaveSiteImage(imageData) {
     category: imageData.category || '',
     display_order: imageData.display_order || imageData.displayOrder || 0,
     is_active: imageData.is_active !== undefined ? imageData.is_active : true,
+    data: imageData.data || imageData.metadata || null,
     updated_at: new Date().toISOString()
   };
 
   if (isSupabaseConfigured && supabase) {
-    if (imageData.id && !imageData.id.startsWith('img-local-')) {
+    try {
       const { data, error } = await supabase
         .from('site_images')
-        .update(payload)
-        .eq('id', imageData.id)
+        .upsert([payload], { onConflict: 'id' })
         .select();
+
       if (!error && data && data.length > 0) {
         return data[0];
+      } else if (error) {
+        console.warn('Supabase DB upsert error:', error.message);
       }
-    } else {
-      const { data, error } = await supabase
-        .from('site_images')
-        .insert([payload])
-        .select();
-      if (!error && data && data.length > 0) {
-        return data[0];
-      }
+    } catch (err) {
+      console.warn('Supabase DB upsert exception:', err);
     }
   }
 
   // Persistent Storage Fallback (LocalStorage + IndexedDB)
   const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
-  const newId = imageData.id || `img-local-${Date.now()}`;
-  const record = { id: newId, ...payload, created_at: new Date().toISOString() };
+  const record = { ...payload, created_at: new Date().toISOString() };
   
-  const existingIdx = saved.findIndex(item => item.id === newId);
+  const existingIdx = saved.findIndex(item => item.id === recordId);
   if (existingIdx >= 0) {
     saved[existingIdx] = record;
   } else {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Tag, Plus, Trash2, Edit3, Check, Star, ArrowUp, ArrowDown, Image as ImageIcon, Sparkles, RefreshCw
 } from 'lucide-react';
+import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminPricingEditor({ packages = [], setPackages }) {
   const categories = [
@@ -65,6 +66,18 @@ export default function AdminPricingEditor({ packages = [], setPackages }) {
     };
 
     setPackages([item, ...packages]);
+
+    // Save package directly to Supabase Cloud database
+    apiSaveSiteImage({
+      id: item.id,
+      section: 'package',
+      image_url: item.image,
+      title: item.name,
+      category: item.category,
+      is_active: true,
+      data: item
+    });
+
     setNewPkg({
       name: '', category: 'Wedding Photography', image: '', description: '',
       featuresText: '', price: 'Get Quote / Contact for Best Price',
@@ -79,12 +92,22 @@ export default function AdminPricingEditor({ packages = [], setPackages }) {
       ? editingPkg.featuresText.split('\n').filter(f => f.trim())
       : editingPkg.features;
 
-    const updated = packages.map(p => p.id === editingPkg.id ? {
-      ...editingPkg,
-      features: updatedFeatures
-    } : p);
+    const updatedPkg = { ...editingPkg, features: updatedFeatures };
+    const updated = packages.map(p => p.id === editingPkg.id ? updatedPkg : p);
 
     setPackages(updated);
+
+    // Update package directly in Supabase Cloud database
+    apiSaveSiteImage({
+      id: updatedPkg.id,
+      section: 'package',
+      image_url: updatedPkg.image,
+      title: updatedPkg.name,
+      category: updatedPkg.category,
+      is_active: true,
+      data: updatedPkg
+    });
+
     setEditingPkg(null);
     triggerNotice();
   };
@@ -92,6 +115,7 @@ export default function AdminPricingEditor({ packages = [], setPackages }) {
   const handleDeletePackage = (id, name) => {
     if (window.confirm(`Permanently delete pricing package "${name}"?`)) {
       setPackages(packages.filter(p => p.id !== id));
+      apiDeleteSiteImage(id);
       triggerNotice();
     }
   };
