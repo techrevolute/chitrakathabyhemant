@@ -16,8 +16,6 @@ export default function AdminSidebar({ activeTab, setActiveTab, onLogout, onClos
     { id: 'portfolio', label: 'Portfolio Gallery', icon: ImageIcon },
     { id: 'drone', label: 'Drone Showcase', icon: Radio },
     { id: 'videos', label: 'Videos & Films', icon: Video },
-    { id: 'pricing', label: 'Pricing Packages', icon: Tag },
-    { id: 'brochure', label: 'Package Brochure', icon: FileText },
     { id: 'bookings', label: 'Bookings & Leads', icon: Calendar, badge: 'New' },
     { id: 'faq', label: 'FAQ Manager', icon: HelpCircle },
     { id: 'media', label: 'Media Vault', icon: HardDrive },

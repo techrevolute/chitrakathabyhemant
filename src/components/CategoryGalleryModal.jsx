@@ -1,4 +1,83 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+function renderUniversalVideoPlayer(videoUrl) {
+  if (!videoUrl) return null;
+  const url = videoUrl.trim();
+
+  // 1. YouTube Link
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]+)/);
+  if (ytMatch && ytMatch[1]) {
+    const ytId = ytMatch[1];
+    return (
+      <iframe
+        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
+        title="YouTube Video Player"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="w-full h-[65vh] min-w-[300px] sm:min-w-[650px] border-0 rounded-2xl"
+      />
+    );
+  }
+
+  // 2. Google Drive Video Link
+  let driveId = null;
+  const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) {
+    driveId = dMatch[1];
+  } else {
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      driveId = idMatch[1];
+    }
+  }
+
+  if (driveId && url.includes('drive.google.com')) {
+    return (
+      <iframe
+        src={`https://drive.google.com/file/d/${driveId}/preview`}
+        title="Google Drive Video Player"
+        allow="autoplay"
+        allowFullScreen
+        className="w-full h-[65vh] min-w-[300px] sm:min-w-[650px] border-0 rounded-2xl"
+      />
+    );
+  }
+
+  // 3. Vimeo Video Link
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch && vimeoMatch[1]) {
+    const vimeoId = vimeoMatch[1];
+    return (
+      <iframe
+        src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+        title="Vimeo Video Player"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        className="w-full h-[65vh] min-w-[300px] sm:min-w-[650px] border-0 rounded-2xl"
+      />
+    );
+  }
+
+  // 4. Native HTML5 Video
+  return (
+    <video
+      key={url}
+      src={url}
+      controls
+      autoPlay
+      playsInline
+      preload="auto"
+      className="max-w-full max-h-[72vh] object-contain rounded-2xl"
+    >
+      Your browser does not support video playback.
+    </video>
+  );
+}
+
+const isVideoMedia = (url) => {
+  if (!url) return false;
+  return url.startsWith('blob:') || url.startsWith('data:video') || Boolean(url.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)) || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com') || url.includes('drive.google.com');
+};
 import { X, ChevronLeft, ChevronRight, Maximize2, Minimize2, MapPin, Calendar, Sparkles, CalendarCheck } from 'lucide-react';
 import { appendCacheBuster, handleImageError } from '../lib/supabase';
 
@@ -201,14 +280,18 @@ export default function CategoryGalleryModal({
 
         {/* Central Aspect-Ratio Main Image Container */}
         <div className="relative max-w-6xl max-h-[72vh] flex items-center justify-center rounded-2xl overflow-hidden shadow-2xl transition-all duration-300">
-          <img
-            key={activePhoto.id || currentIndex}
-            src={appendCacheBuster(activePhoto.image || activePhoto.image_url)}
-            alt={activePhoto.title || categoryName}
-            onError={(e) => handleImageError(e)}
-            className="max-w-full max-h-[72vh] object-contain transition-opacity duration-300"
-            loading="eager"
-          />
+          {isVideoMedia(activePhoto.image || activePhoto.image_url) ? (
+            renderUniversalVideoPlayer(activePhoto.image || activePhoto.image_url)
+          ) : (
+            <img
+              key={activePhoto.id || currentIndex}
+              src={appendCacheBuster(activePhoto.image || activePhoto.image_url)}
+              alt={activePhoto.title || categoryName}
+              onError={(e) => handleImageError(e)}
+              className="max-w-full max-h-[72vh] object-contain transition-opacity duration-300"
+              loading="eager"
+            />
+          )}
 
           {/* Watermark Overlay if Admin Enabled */}
           {watermark && watermark.enabled && (

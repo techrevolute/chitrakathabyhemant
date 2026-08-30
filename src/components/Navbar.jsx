@@ -25,7 +25,6 @@ export default function Navbar({ lang, setLang, t, logoUrl = '', onOpenBooking, 
     { id: 'about', label: t.nav.about },
     { id: 'portfolio', label: t.nav.portfolio },
     { id: 'services', label: t.nav.services },
-    { id: 'pricing', label: t.nav.pricing },
     { id: 'faq', label: t.nav.faq },
     { id: 'contact', label: t.nav.contact }
   ];

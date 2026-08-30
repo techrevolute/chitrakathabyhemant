@@ -1,6 +1,87 @@
 import React, { useState } from 'react';
 import { Play, Film, Clock, Eye, X } from 'lucide-react';
 
+function renderUniversalVideoPlayer(videoUrl) {
+  if (!videoUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">
+        No video URL provided.
+      </div>
+    );
+  }
+
+  const url = videoUrl.trim();
+
+  // 1. YouTube Link (e.g. https://www.youtube.com/watch?v=XYZ or https://youtu.be/XYZ)
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]+)/);
+  if (ytMatch && ytMatch[1]) {
+    const ytId = ytMatch[1];
+    return (
+      <iframe
+        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
+        title="YouTube Video Player"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="w-full h-full border-0"
+      />
+    );
+  }
+
+  // 2. Google Drive Video Link (e.g. https://drive.google.com/file/d/FILE_ID/view)
+  let driveId = null;
+  const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) {
+    driveId = dMatch[1];
+  } else {
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      driveId = idMatch[1];
+    }
+  }
+
+  if (driveId && url.includes('drive.google.com')) {
+    return (
+      <iframe
+        src={`https://drive.google.com/file/d/${driveId}/preview`}
+        title="Google Drive Video Player"
+        allow="autoplay"
+        allowFullScreen
+        className="w-full h-full border-0"
+      />
+    );
+  }
+
+  // 3. Vimeo Video Link (e.g. https://vimeo.com/12345678)
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch && vimeoMatch[1]) {
+    const vimeoId = vimeoMatch[1];
+    return (
+      <iframe
+        src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+        title="Vimeo Video Player"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        className="w-full h-full border-0"
+      />
+    );
+  }
+
+  // 4. Native HTML5 Video (Direct MP4, WebM, Blob, or URL)
+  return (
+    <video
+      key={url}
+      src={url}
+      controls
+      autoPlay
+      playsInline
+      preload="auto"
+      className="w-full h-full object-contain"
+    >
+      Your browser does not support video playback.
+    </video>
+  );
+}
+
 export default function VideoGallery({ videos = [], t, onOpenBooking }) {
   const [activeVideo, setActiveVideo] = useState(null);
 
@@ -108,14 +189,7 @@ export default function VideoGallery({ videos = [], t, onOpenBooking }) {
 
             {/* Video Player */}
             <div className="relative aspect-video bg-black">
-              <video
-                controls
-                autoPlay
-                className="w-full h-full object-contain"
-              >
-                <source src={activeVideo.videoUrl} type="video/mp4" />
-                Your browser does not support video playback.
-              </video>
+              {renderUniversalVideoPlayer(activeVideo.videoUrl)}
             </div>
 
             {/* Modal Footer CTA */}

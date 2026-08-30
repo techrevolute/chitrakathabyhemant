@@ -6,19 +6,29 @@ export default function Hero({ heroData, siteImages = [], t, onOpenBooking, setA
   const videoRef = useRef(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
+  const isVideoMedia = (url) => {
+    if (!url) return false;
+    return url.startsWith('blob:') || url.startsWith('data:video') || Boolean(url.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i));
+  };
+
   // Extract hero slides from siteImages or heroData
   const heroItems = siteImages.filter(img => img.section === 'hero' && img.is_active !== false);
-  const slides = heroItems.length > 0 
-    ? heroItems.map(item => ({
-        url: appendCacheBuster(item.image_url),
+  const primaryRaw = heroData?.url || (heroItems.length > 0 ? heroItems[0].image_url : 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4');
+
+  const slides = [
+    {
+      url: isVideoMedia(primaryRaw) ? primaryRaw : appendCacheBuster(primaryRaw),
+      title: heroData?.title || t.hero.title,
+      isVideo: isVideoMedia(primaryRaw)
+    },
+    ...heroItems
+      .filter(item => item.image_url && item.image_url !== primaryRaw)
+      .map(item => ({
+        url: isVideoMedia(item.image_url) ? item.image_url : appendCacheBuster(item.image_url),
         title: item.title || heroData?.title || t.hero.title,
-        isVideo: item.image_url?.match(/\.(mp4|webm|mov)(\?.*)?$/i)
+        isVideo: isVideoMedia(item.image_url)
       }))
-    : [{
-        url: appendCacheBuster(heroData?.url || 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'),
-        title: heroData?.title || t.hero.title,
-        isVideo: true
-      }];
+  ];
 
   const currentSlide = slides[currentSlideIndex % slides.length] || slides[0];
 
@@ -42,9 +52,19 @@ export default function Hero({ heroData, siteImages = [], t, onOpenBooking, setA
       videoRef.current.muted = true;
       videoRef.current.defaultMuted = true;
       videoRef.current.playsInline = true;
-      videoRef.current.play().catch(() => {});
+      try {
+        videoRef.current.load();
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn('Hero video autoplay prevented or failed:', err);
+          });
+        }
+      } catch (e) {
+        console.warn('Video load error:', e);
+      }
     }
-  }, [currentSlide]);
+  }, [currentSlide.url, currentSlide.isVideo]);
 
   return (
     <section id="home" className="relative w-full h-screen min-h-[650px] flex items-center justify-center overflow-hidden bg-black">
@@ -54,15 +74,22 @@ export default function Hero({ heroData, siteImages = [], t, onOpenBooking, setA
         <video
           key={currentSlide.url}
           ref={videoRef}
+          src={currentSlide.url}
           autoPlay={true}
           loop={true}
           muted={true}
           playsInline={true}
           preload="auto"
+          onError={(e) => {
+            console.warn('Hero video error, setting reliable fallback video');
+            if (e.target && e.target.src !== 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4') {
+              e.target.src = 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4';
+              e.target.load();
+              e.target.play().catch(() => {});
+            }
+          }}
           className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-1000 pointer-events-none"
-        >
-          <source src={currentSlide.url} type="video/mp4" />
-        </video>
+        />
       ) : (
         <div
           key={currentSlide.url}

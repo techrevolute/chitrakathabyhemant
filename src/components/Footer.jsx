@@ -102,11 +102,6 @@ export default function Footer({ logoUrl = '', t, setActivePage, onOpenBooking }
                 </button>
               </li>
               <li>
-                <button onClick={() => { setActivePage('pricing'); scrollToTop(); }} className="hover:text-white transition-colors">
-                  {t.nav.pricing}
-                </button>
-              </li>
-              <li>
                 <button onClick={() => { setActivePage('faq'); scrollToTop(); }} className="hover:text-white transition-colors">
                   {t.nav.faq}
                 </button>

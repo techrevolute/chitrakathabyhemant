@@ -1,15 +1,64 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Trash2, Video, Check, Star, ArrowUp, ArrowDown, Eye, EyeOff, Film, Clock, Play, Upload, FolderOpen, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Video, Check, Star, ArrowUp, ArrowDown, Eye, EyeOff, Film, Clock, Play, Upload, FolderOpen, RefreshCw, Edit3, X, Save } from 'lucide-react';
+import { formatGoogleDriveUrl, compressImageFile } from '../../lib/supabase';
+import { setVideoBlob, usePersistentState } from '../../lib/storage';
 
-export default function AdminVideoEditor({ videos = [], setVideos }) {
+const DEFAULT_VIDEO_CATEGORIES = [
+  'Wedding Film',
+  'Engagement',
+  'Pre-Wedding',
+  'Maternity',
+  'Fashion',
+  'Drone Cinema',
+  'Sangeet Highlights',
+  'Haldi & Mehendi',
+  'Corporate Reel'
+];
+
+function CategoryManagerModal({ isOpen, onClose, categories, setCategories }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#1C1C1C] border border-stone-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-serif text-lg font-bold">Manage Categories</h3>
+          <button onClick={onClose}><X className="w-5 h-5 text-stone-400" /></button>
+        </div>
+        <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+          {categories.map((cat, idx) => (
+            <div key={idx} className="flex items-center justify-between p-2 bg-stone-900 rounded-lg border border-stone-800">
+              <span className="text-xs text-white">{cat}</span>
+              <button onClick={() => setCategories(categories.filter((_, i) => i !== idx))} className="text-red-400"><Trash2 className="w-3.5 h-3.5"/></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminVideoEditor({ videos = [], setVideos, categories = [], setCategories }) {
   const videoFileInputRef = useRef(null);
   const thumbFileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
+  const [categoryList, setCategoryList] = usePersistentState(
+    'chitrakatha_video_categories_list',
+    DEFAULT_VIDEO_CATEGORIES
+  );
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  const allAvailableCategories = Array.from(new Set([
+    ...categoryList,
+    ...(Array.isArray(categories) ? categories.map(c => c.name) : []),
+    ...videos.map(v => v.category).filter(Boolean)
+  ])).filter(Boolean);
+
   const [newVideo, setNewVideo] = useState({
     title: '',
     description: '',
-    category: 'Wedding Film',
+    category: allAvailableCategories[0] || 'Wedding Film',
     duration: '03:30',
     thumbnail: '',
     videoUrl: '',
@@ -24,21 +73,23 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
-  // --- NATIVE COMPUTER VIDEO FILE SELECTOR (Instant 0-Quota Blob URL) ---
-  const handleVideoFileSelect = (e) => {
+  const handleVideoFileSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    files.forEach((file, index) => {
-      // Instant Blob URL for 0-memory high-res video playback
-      const videoBlobUrl = URL.createObjectURL(file);
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
       const cleanFileName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+      const id = `vid-file-${Date.now()}-${index}`;
+
+      await setVideoBlob(`video_file_${id}`, file);
+      const videoBlobUrl = URL.createObjectURL(file);
 
       const item = {
-        id: `vid-file-${Date.now()}-${index}`,
+        id: id,
         title: newVideo.title || cleanFileName,
         description: newVideo.description || 'Cinematic feature video film captured by Hemant Mandawade.',
-        category: newVideo.category || 'Wedding Film',
+        category: newVideo.category || allAvailableCategories[0] || 'Wedding Film',
         duration: newVideo.duration || '04:15',
         thumbnail: newVideo.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
         videoUrl: videoBlobUrl,
@@ -50,17 +101,16 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
       };
 
       setVideos(prev => [item, ...prev]);
-    });
+    }
 
     setNewVideo({
-      title: '', description: '', category: 'Wedding Film', duration: '03:30',
+      title: '', description: '', category: allAvailableCategories[0] || 'Wedding Film', duration: '03:30',
       thumbnail: '', videoUrl: '', location: 'Satana & Nashik', featured: true
     });
     triggerNotice();
     if (videoFileInputRef.current) videoFileInputRef.current.value = '';
   };
 
-  // --- NATIVE COMPUTER THUMBNAIL FILE SELECTOR ---
   const handleThumbFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -84,7 +134,7 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
       id: `vid-${Date.now()}`,
       title: newVideo.title,
       description: newVideo.description || 'Cinematic video film captured by Chitrakatha by Hemant.',
-      category: newVideo.category || 'Wedding Film',
+      category: newVideo.category || allAvailableCategories[0] || 'Wedding Film',
       duration: newVideo.duration || '03:30',
       thumbnail: newVideo.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
       videoUrl: newVideo.videoUrl,
@@ -97,7 +147,7 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
 
     setVideos([item, ...videos]);
     setNewVideo({
-      title: '', description: '', category: 'Wedding Film', duration: '03:30',
+      title: '', description: '', category: allAvailableCategories[0] || 'Wedding Film', duration: '03:30',
       thumbnail: '', videoUrl: '', location: 'Satana & Nashik', featured: true
     });
     triggerNotice();
@@ -132,96 +182,142 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
     triggerNotice();
   };
 
+  const handleReplaceVideoThumbnail = (id) => {
+    const current = videos.find(v => v.id === id);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        try {
+          const compressedUrl = await compressImageFile(file, 1600, 1600, 0.82);
+          if (compressedUrl) {
+            setVideos(videos.map(v => v.id === id ? { ...v, thumbnail: compressedUrl } : v));
+            triggerNotice();
+          }
+        } catch (err) {
+          const thumbBlobUrl = URL.createObjectURL(file);
+          setVideos(videos.map(v => v.id === id ? { ...v, thumbnail: thumbBlobUrl } : v));
+          triggerNotice();
+        }
+      }
+    };
+    input.click();
+  };
+
   return (
     <div className="space-y-8 text-white max-w-5xl">
+      <CategoryManagerModal isOpen={showCategoryManager} onClose={() => setShowCategoryManager(false)} categories={categoryList} setCategories={setCategoryList} />
       
-      {/* Hidden Native File Inputs */}
-      <input
-        type="file"
-        ref={videoFileInputRef}
-        onChange={handleVideoFileSelect}
-        accept="video/*"
-        multiple
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={thumbFileInputRef}
-        onChange={handleThumbFileSelect}
-        accept="image/*"
-        className="hidden"
-      />
+      <input type="file" ref={videoFileInputRef} onChange={handleVideoFileSelect} accept="video/*" multiple className="hidden" />
+      <input type="file" ref={thumbFileInputRef} onChange={handleThumbFileSelect} accept="image/*" className="hidden" />
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
         <div>
-          <h2 className="font-serif text-3xl font-bold">Dynamic Video & Film Management</h2>
-          <p className="text-xs text-stone-400">Upload 4K wedding films directly from your computer, set thumbnails, duration & categories</p>
+          <h2 className="font-serif text-2xl font-bold flex items-center gap-2">
+            <Film className="w-6 h-6 text-amber-400" /> Cinematic Films & Video Manager
+          </h2>
+          <p className="text-xs text-stone-400">Upload videos directly from your computer or paste video URLs (YouTube, Google Drive, MP4).</p>
         </div>
-
-        {savedNotice && (
-          <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold animate-fade-in">
-            <Check className="w-4 h-4" /> Video Added Successfully
-          </span>
-        )}
       </div>
 
-      {/* DIRECT COMPUTER VIDEO FILE DROPZONE */}
+      {savedNotice && (
+        <div className="p-3 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
+          <Check className="w-4 h-4 text-amber-400" />
+          <span>Video configuration updated & saved successfully!</span>
+        </div>
+      )}
+
       <div
-        onClick={() => videoFileInputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-3xl p-8 text-center transition-all cursor-pointer group ${
-          dragActive ? 'border-[#8B0000] bg-[#8B0000]/10' : 'border-stone-700 bg-[#1C1C1C] hover:border-amber-500 hover:bg-stone-900/80'
+        onClick={() => videoFileInputRef.current?.click()}
+        className={`p-8 border-2 border-dashed rounded-3xl text-center cursor-pointer transition-all duration-300 ${
+          dragActive
+            ? 'border-amber-400 bg-amber-400/10 scale-[1.01]'
+            : 'border-stone-700 bg-[#1C1C1C] hover:border-amber-400/60 hover:bg-stone-900'
         }`}
       >
-        <Upload className="w-10 h-10 text-amber-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
-        <h4 className="font-serif text-xl font-bold">Upload Video Film Directly From Computer</h4>
-        <p className="text-xs text-stone-400 mt-1">Click anywhere in this box or drag & drop MP4/WebM video files directly from your hard drive</p>
-
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); videoFileInputRef.current?.click(); }}
-          className="mt-4 px-6 py-2.5 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
-        >
-          <FolderOpen className="w-4 h-4" />
-          <span>Select Video File From Computer</span>
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+            <Upload className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="font-serif text-lg font-bold">Select or Drag Video Files from PC</h3>
+            <p className="text-xs text-stone-400 mt-1">Supports MP4, WebM, MOV. Instant 0-Quota storage directly saved to your browser.</p>
+          </div>
+          <button type="button" className="mt-2 px-5 py-2 rounded-full bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold uppercase tracking-wider transition-all">
+            Browse Computer Files
+          </button>
+        </div>
       </div>
 
-      {/* Add New Video via Form */}
-      <form onSubmit={handleAddVideoUrl} className="bg-[#1C1C1C] rounded-3xl p-6 border border-stone-800 space-y-4 shadow-xl">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Or Add / Embed Video Film Details
+      <form onSubmit={handleAddVideoUrl} className="bg-[#1C1C1C] p-6 rounded-3xl border border-stone-800 space-y-4 shadow-xl">
+        <h3 className="font-serif text-lg font-bold flex items-center gap-2 border-b border-stone-800 pb-3">
+          <Plus className="w-5 h-5 text-amber-400" /> Add New Video Entry
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-stone-300 uppercase">Video Title *</label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. Aditya & Ananya - Destination Wedding Film"
-              value={newVideo.title}
-              onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })}
-              className="w-full p-2.5 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
-            />
+            <input type="text" required placeholder="e.g. Aditya & Ananya - Wedding Film" value={newVideo.title} onChange={(e) => setNewVideo({ ...newVideo, title: e.target.value })} className="w-full p-2.5 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white" />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-stone-300 uppercase">Category *</label>
-            <select
-              value={newVideo.category}
-              onChange={(e) => setNewVideo({ ...newVideo, category: e.target.value })}
-              className="w-full p-2.5 rounded-xl bg-stone-900 border border-stone-700 text-xs font-medium text-white"
-            >
-              <option value="Wedding Film">Wedding Film</option>
-              <option value="Pre Wedding">Pre Wedding Trailer</option>
-              <option value="Drone Cinema">Drone Cinema</option>
-              <option value="Sangeet Highlights">Sangeet Highlights</option>
-              <option value="Fashion Reel">Fashion Reel</option>
-            </select>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-stone-300 uppercase">Category *</label>
+              <button type="button" onClick={() => setShowCategoryManager(true)} className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors">
+                <Edit3 className="w-3 h-3" /> Edit Categories
+              </button>
+            </div>
+
+            {!isCustomCategory ? (
+              <select
+                value={newVideo.category}
+                onChange={(e) => {
+                  if (e.target.value === '__ADD_NEW__') {
+                    setIsCustomCategory(true);
+                    setNewVideo(prev => ({ ...prev, category: '' }));
+                  } else {
+                    setNewVideo(prev => ({ ...prev, category: e.target.value }));
+                  }
+                }}
+                className="w-full p-2.5 rounded-xl bg-stone-900 border border-stone-700 text-xs font-medium text-white focus:outline-none focus:border-amber-400"
+              >
+                {allAvailableCategories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                <option value="__ADD_NEW__">➕ + Add New Custom Category...</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type custom category name..."
+                  value={newVideo.category}
+                  onChange={(e) => setNewVideo({ ...newVideo, category: e.target.value })}
+                  className="w-full p-2.5 rounded-xl bg-stone-900 border border-amber-400 text-xs font-medium text-white focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newVideo.category && newVideo.category.trim()) {
+                      const trimmed = newVideo.category.trim();
+                      if (!categoryList.includes(trimmed)) {
+                        setCategoryList(prev => [...prev, trimmed]);
+                      }
+                    }
+                    setIsCustomCategory(false);
+                  }}
+                  className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs rounded-xl shrink-0"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -316,12 +412,21 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
               
               <div className="flex gap-4 items-start">
                 {/* Video Thumbnail */}
-                <div className="relative w-36 h-24 rounded-xl overflow-hidden bg-stone-900 border border-stone-800 shrink-0">
+                <div className="relative w-36 h-24 rounded-xl overflow-hidden bg-stone-900 border border-stone-800 shrink-0 group/vthumb">
                   <img src={vid.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800'} alt={vid.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <Play className="w-6 h-6 text-white fill-current opacity-80" />
                   </div>
-                  <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-white">
+                  <button
+                    type="button"
+                    onClick={() => handleReplaceVideoThumbnail(vid.id)}
+                    className="absolute inset-0 bg-black/75 opacity-0 group-hover/vthumb:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition-opacity cursor-pointer"
+                    title="Change Video Thumbnail"
+                  >
+                    <Edit3 className="w-4 h-4 text-amber-400 mb-1" />
+                    <span>Change Thumbnail</span>
+                  </button>
+                  <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-white pointer-events-none">
                     {vid.duration}
                   </span>
                 </div>
@@ -361,6 +466,16 @@ export default function AdminVideoEditor({ videos = [], setVideos }) {
               {/* Bottom Actions */}
               <div className="pt-3 border-t border-stone-800 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleReplaceVideoThumbnail(vid.id)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-colors bg-stone-900 text-cyan-400 border border-stone-700 hover:bg-stone-800 cursor-pointer"
+                    title="Change Video Thumbnail"
+                  >
+                    <Edit3 className="w-3 h-3 text-cyan-400" />
+                    <span>Change Thumbnail</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleToggleFeatured(vid.id)}

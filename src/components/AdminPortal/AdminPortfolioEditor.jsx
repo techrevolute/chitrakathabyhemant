@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   formatGoogleDriveUrl, appendCacheBuster, handleImageError, compressImageFile,
-  extractGoogleDriveFolderId, fetchGoogleDriveFolderPhotos, apiSaveSiteImage
+  extractGoogleDriveFolderId, fetchGoogleDriveFolderPhotos, apiSaveSiteImage, apiUploadStorageFile
 } from '../../lib/supabase';
 
 export default function AdminPortfolioEditor({
@@ -155,15 +155,22 @@ export default function AdminPortfolioEditor({
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
-        const compressedUrl = await compressImageFile(file, 1600, 1600, 0.82);
-        if (compressedUrl) {
+        let finalImageUrl = '';
+        try {
+          const uploadRes = await apiUploadStorageFile('portfolio-images', file);
+          finalImageUrl = uploadRes?.publicUrl || (await compressImageFile(file, 1600, 1600, 0.82));
+        } catch (uErr) {
+          finalImageUrl = await compressImageFile(file, 1600, 1600, 0.82);
+        }
+
+        if (finalImageUrl) {
           const item = {
             id: `img-file-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
             categoryId: catObj?.id || 'cat-wedding',
             category: targetCat,
             title: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
             description: `Photograph captured by Hemant Mandawade.`,
-            image: compressedUrl,
+            image: finalImageUrl,
             altText: `${file.name} - ${targetCat} Photography`,
             location: 'Maharashtra',
             featured: true,
@@ -177,7 +184,7 @@ export default function AdminPortfolioEditor({
           // Save category & photo record to Supabase
           apiSaveSiteImage({
             section: 'portfolio',
-            image_url: compressedUrl,
+            image_url: finalImageUrl,
             title: item.title,
             category: targetCat,
             display_order: item.displayOrder,
@@ -185,7 +192,7 @@ export default function AdminPortfolioEditor({
           });
         }
       } catch (err) {
-        console.error('Error compressing image:', err);
+        console.error('Error processing uploaded image:', err);
       }
     }
 
@@ -293,11 +300,34 @@ export default function AdminPortfolioEditor({
 
   const handleReplaceImage = (id) => {
     const current = portfolio.find(p => p.id === id);
-    const newUrl = window.prompt("Enter replacement Image URL (or Google Drive share link):", current?.image);
-    if (newUrl && newUrl.trim()) {
-      const formatted = formatGoogleDriveUrl(newUrl.trim());
-      setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: formatted } : p));
-      triggerNotice();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        try {
+          const compressedUrl = await compressImageFile(file, 1600, 1600, 0.82);
+          if (compressedUrl) {
+            setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: compressedUrl } : p));
+            triggerNotice();
+          }
+        } catch (err) {
+          console.error('Error compressing image:', err);
+        }
+      }
+    };
+
+    const choice = window.confirm("Change Photo Thumbnail:\n\nClick OK to select a new image file from your computer.\nClick Cancel to paste an Image URL or Google Drive link instead.");
+    if (choice) {
+      input.click();
+    } else {
+      const newUrl = window.prompt("Enter replacement Image URL or Google Drive share link:", current?.image);
+      if (newUrl && newUrl.trim()) {
+        const formatted = formatGoogleDriveUrl(newUrl.trim());
+        setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: formatted } : p));
+        triggerNotice();
+      }
     }
   };
 
@@ -937,17 +967,9 @@ export default function AdminPortfolioEditor({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {categories.map((cat) => (
                 <div key={cat.id} className="p-4 bg-[#1C1C1C] rounded-2xl border border-stone-800 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={appendCacheBuster(cat.coverImage)}
-                      alt={cat.name}
-                      onError={(e) => handleImageError(e)}
-                      className="w-14 h-14 rounded-xl object-cover"
-                    />
-                    <div>
-                      <h4 className="font-serif text-lg font-bold text-white">{cat.name}</h4>
-                      <span className="text-[10px] text-stone-400 font-mono">/{cat.slug}</span>
-                    </div>
+                  <div>
+                    <h4 className="font-serif text-lg font-bold text-white">{cat.name}</h4>
+                    <span className="text-[10px] text-stone-400 font-mono">/{cat.slug}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button

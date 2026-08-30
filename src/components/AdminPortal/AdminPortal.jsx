@@ -168,20 +168,8 @@ export default function AdminPortal({
             <AdminVideoEditor
               videos={videos}
               setVideos={setVideos}
-            />
-          )}
-
-          {activeTab === 'pricing' && (
-            <AdminPricingEditor
-              packages={packages}
-              setPackages={setPackages}
-            />
-          )}
-
-          {activeTab === 'brochure' && (
-            <AdminBrochureEditor
-              brochures={brochures}
-              setBrochures={setBrochures}
+              categories={categories}
+              setCategories={setCategories}
             />
           )}
 

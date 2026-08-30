@@ -39,7 +39,7 @@ import {
 
 import { TRANSLATIONS } from './data/translations';
 import { apiFetchSiteImages } from './lib/supabase';
-import { usePersistentState, removePersistentItem } from './lib/storage';
+import { usePersistentState, removePersistentItem, getVideoBlob } from './lib/storage';
 
 export default function App() {
   // Bulletproof Persistent States (Syncs to memory, LocalStorage & IndexedDB)
@@ -65,6 +65,71 @@ export default function App() {
   const [bookings, setBookings] = usePersistentState('chitrakatha_bookings', INITIAL_BOOKINGS);
   const [driveFolders, setDriveFolders] = usePersistentState('chitrakatha_drive_folders', []);
 
+  // Sanitize heroData if a giant base64 video string or polluted query parameter was previously saved
+  useEffect(() => {
+    if (heroData && heroData.url) {
+      if (heroData.url.startsWith('data:video')) {
+        console.warn('Sanitizing giant base64 video string from heroData');
+        setHeroData(prev => ({
+          ...prev,
+          url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'
+        }));
+      } else if (heroData.url.includes('.mp4?v=')) {
+        const cleanMp4 = heroData.url.split('?v=')[0];
+        setHeroData(prev => ({
+          ...prev,
+          url: cleanMp4
+        }));
+      }
+    }
+  }, [heroData?.url]);
+
+  // Load local computer video file Blob from IndexedDB on page load/refresh
+  useEffect(() => {
+    async function restoreLocalVideoBlob() {
+      try {
+        const storedBlob = await getVideoBlob('chitrakatha_hero_video_blob');
+        if (storedBlob && (storedBlob instanceof Blob || storedBlob instanceof File)) {
+          const freshBlobUrl = URL.createObjectURL(storedBlob);
+          setHeroData(prev => ({
+            ...prev,
+            url: freshBlobUrl
+          }));
+        }
+      } catch (err) {
+        console.warn('Error loading video blob from IndexedDB:', err);
+      }
+    }
+    restoreLocalVideoBlob();
+  }, []);
+
+  // Restore local Engagement/Film video Blobs from IndexedDB on page load/refresh
+  useEffect(() => {
+    async function restoreVideoGalleryBlobs() {
+      if (!Array.isArray(videos) || videos.length === 0) return;
+      let updated = false;
+      const newVideos = await Promise.all(videos.map(async (vid) => {
+        if (vid.id && vid.id.startsWith('vid-file-')) {
+          try {
+            const blob = await getVideoBlob(`video_file_${vid.id}`);
+            if (blob && (blob instanceof Blob || blob instanceof File)) {
+              updated = true;
+              return { ...vid, videoUrl: URL.createObjectURL(blob) };
+            }
+          } catch (e) {
+            console.warn('Error restoring video gallery blob:', e);
+          }
+        }
+        return vid;
+      }));
+
+      if (updated) {
+        setVideos(newVideos);
+      }
+    }
+    restoreVideoGalleryBlobs();
+  }, []);
+
   // Sync with remote Supabase database if configured
   useEffect(() => {
     async function loadRemoteImages() {
@@ -72,6 +137,21 @@ export default function App() {
         const remoteImgs = await apiFetchSiteImages();
         if (remoteImgs && remoteImgs.length > 0) {
           setSiteImages(remoteImgs);
+
+          // Find active hero record (sorted by updated_at / latest)
+          const activeHero = remoteImgs
+            .filter(img => img.section === 'hero' && img.is_active !== false)
+            .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0];
+
+          // Only overwrite heroData if activeHero is a valid permanent HTTP/HTTPS URL (not expired blob: string)
+          if (activeHero && activeHero.image_url && !activeHero.image_url.startsWith('blob:')) {
+            setHeroData(prev => ({
+              ...prev,
+              url: activeHero.image_url,
+              title: activeHero.title || prev?.title
+            }));
+          }
+
           const aboutImg = remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
           if (aboutImg && aboutImg.image_url) {
             setAboutData(prev => ({ ...prev, profileImage: aboutImg.image_url }));
@@ -164,15 +244,7 @@ export default function App() {
       {/* Main Content Router View */}
       <main className="flex-1">
         
-        {/* Dedicated Pricing Page */}
-        {activePage === 'pricing' ? (
-          <PricingPage
-            packages={packages}
-            brochures={brochures}
-            t={t}
-            onOpenBooking={() => setBookingModalOpen(true)}
-          />
-        ) : activePage === 'faq' ? (
+        {activePage === 'faq' ? (
           /* Dedicated FAQ Page */
           <FaqPage
             faqs={faqs}

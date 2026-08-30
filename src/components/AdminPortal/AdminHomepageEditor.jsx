@@ -1,16 +1,98 @@
 import React, { useState, useRef } from 'react';
 import { Save, Check, Plus, Upload, FolderOpen, AlertCircle, Trash2, ArrowUp, ArrowDown, RefreshCw, Star } from 'lucide-react';
-import { apiUploadStorageFile, apiSaveSiteImage, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
+import { apiUploadStorageFile, apiSaveSiteImage, apiSaveHeroVideo, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
+import { setVideoBlob, removeVideoBlob } from '../../lib/storage';
 
 export default function AdminHomepageEditor({ heroData, setHeroData, siteImages = [], setSiteImages, portfolio = [], setPortfolio }) {
   const [formData, setFormData] = useState({ ...heroData });
   const [toastMessage, setToastMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const heroFileRef = useRef(null);
+  const directVideoRef = useRef(null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
+    setTimeout(() => setToastMessage(''), 3500);
+  };
+
+  // Direct Homepage Hero Video Upload from PC (Instant IndexedDB Save & Non-blocking Cloud Upload)
+  const handleDirectHeroVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check size limit (max 500MB)
+    if (file.size > 500 * 1024 * 1024) {
+      showToast('Video file is too large. Please select a video under 500MB.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadStatus('Processing video...');
+
+    try {
+      // 1. Save binary video file to IndexedDB on disk so it SURVIVES F5 page refreshes & restarts 100%!
+      await setVideoBlob('chitrakatha_hero_video_blob', file);
+
+      // 2. Generate instant Blob URL for immediate high-res playback
+      const instantBlobUrl = URL.createObjectURL(file);
+
+      // 3. Immediately update UI state so video plays on website in 0 seconds!
+      const localRecord = {
+        id: `hero-local-${Date.now()}`,
+        section: 'hero',
+        title: formData.title || 'Homepage Hero Video',
+        image_url: instantBlobUrl,
+        is_active: true,
+        display_order: 1
+      };
+
+      setFormData(prev => ({ ...prev, url: instantBlobUrl }));
+      setHeroData(prev => ({ ...prev, url: instantBlobUrl }));
+
+      if (setSiteImages) {
+        setSiteImages(prev => {
+          const others = prev.filter(img => img.section !== 'hero');
+          return [localRecord, ...others];
+        });
+      }
+
+      showToast('Published successfully! Video is active on homepage.');
+
+      // 4. Non-blocking Background Cloud Upload to Supabase Storage (10s timeout)
+      (async () => {
+        try {
+          const uploadPromise = apiUploadStorageFile('website-images', file);
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 10000));
+          const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+
+          if (uploadResult && uploadResult.publicUrl) {
+            const savedRecord = await apiSaveHeroVideo(
+              uploadResult.publicUrl,
+              formData.title || 'Homepage Hero Video',
+              uploadResult.storagePath
+            );
+
+            if (savedRecord && savedRecord.image_url) {
+              setSiteImages(prev => {
+                const others = prev.filter(img => img.section !== 'hero');
+                return [savedRecord, ...others];
+              });
+            }
+          }
+        } catch (bgErr) {
+          console.warn('Background cloud upload notice:', bgErr);
+        }
+      })();
+
+    } catch (err) {
+      console.error('Error uploading hero video:', err);
+      showToast('Video processing failed. Please try again.');
+    } finally {
+      setUploading(false);
+      setUploadStatus('');
+      if (directVideoRef.current) directVideoRef.current.value = '';
+    }
   };
 
   // Hero section images/videos list
@@ -22,9 +104,12 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     if (!file) return;
 
     setUploading(true);
+    setUploadStatus('Uploading video to cloud storage...');
+
     try {
       const result = await apiUploadStorageFile('website-images', file);
       if (result && result.publicUrl) {
+        setUploadStatus('Saving to database...');
         const busterUrl = appendCacheBuster(result.publicUrl);
         const newRecord = await apiSaveSiteImage({
           section: 'hero',
@@ -41,13 +126,16 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
         }
         setFormData(prev => ({ ...prev, url: busterUrl }));
         setHeroData(prev => ({ ...prev, url: busterUrl }));
-        showToast('Hero image uploaded successfully');
+        showToast('Published successfully!');
+      } else {
+        showToast('Video upload failed. Please try again.');
       }
     } catch (err) {
       console.error('Error adding hero file:', err);
-      showToast('Error uploading hero image');
+      showToast('Video upload failed. Please try again.');
     } finally {
       setUploading(false);
+      setUploadStatus('');
     }
   };
 
@@ -58,7 +146,7 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
       if (setSiteImages) {
         setSiteImages(prev => prev.filter(img => img.id !== id));
       }
-      showToast('Image deleted successfully');
+      showToast('Media deleted successfully');
     }
   };
 
@@ -85,10 +173,48 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     showToast('Hero order updated successfully');
   };
 
-  const handleSaveHero = (e) => {
+  // Save/Publish Hero Banner
+  const handleSaveHero = async (e) => {
     e.preventDefault();
-    setHeroData({ ...formData });
-    showToast('Hero banner settings saved successfully');
+    if (!formData.url) {
+      showToast('Missing video URL. Please select a video file or enter a valid URL.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadStatus('Saving to database...');
+
+    try {
+      if (formData.url.startsWith('http://') || formData.url.startsWith('https://')) {
+        await removeVideoBlob('chitrakatha_hero_video_blob');
+      }
+
+      const savedRecord = await apiSaveHeroVideo(
+        formData.url,
+        formData.title || 'Homepage Hero Video',
+        null
+      );
+
+      if (savedRecord && savedRecord.image_url) {
+        const finalUrl = savedRecord.image_url;
+        setHeroData({ ...formData, url: finalUrl });
+        if (setSiteImages) {
+          setSiteImages(prev => {
+            const others = prev.filter(img => img.section !== 'hero');
+            return [savedRecord, ...others];
+          });
+        }
+        showToast('Published successfully!');
+      } else {
+        showToast('Video upload failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error saving hero:', err);
+      showToast('Video upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      setUploadStatus('');
+    }
   };
 
   // Featured Photos Management
@@ -103,12 +229,19 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
   return (
     <div className="space-y-8 text-white max-w-5xl">
       
-      {/* Hidden File Input */}
+      {/* Hidden File Inputs */}
       <input
         type="file"
         ref={heroFileRef}
         onChange={handleAddHeroFile}
         accept="image/*,video/*"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={directVideoRef}
+        onChange={handleDirectHeroVideoUpload}
+        accept="video/*"
         className="hidden"
       />
 
@@ -119,9 +252,18 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
           <p className="text-xs text-stone-400">Manage hero slider images/videos, main headline, and featured gallery</p>
         </div>
 
-        {toastMessage && (
-          <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold animate-fade-in">
-            <Check className="w-4 h-4" /> {toastMessage}
+        {uploadStatus && (
+          <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-950 border border-amber-800 text-amber-300 text-xs font-bold animate-pulse">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {uploadStatus}
+          </span>
+        )}
+
+        {!uploadStatus && toastMessage && (
+          <span className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold animate-fade-in ${
+            toastMessage.includes('failed') ? 'bg-red-950 border border-red-800 text-red-300' : 'bg-emerald-950 border border-emerald-800 text-emerald-300'
+          }`}>
+            {toastMessage.includes('failed') ? <AlertCircle className="w-4 h-4 text-red-400" /> : <Check className="w-4 h-4" />}
+            <span>{toastMessage}</span>
           </span>
         )}
       </div>
@@ -209,13 +351,26 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Hero Primary Video/Image URL (Default)</label>
-            <input
-              type="text"
-              required
-              value={formData.url || ''}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                required
+                placeholder="Paste Video URL or click button to pick video file from computer"
+                value={formData.url || ''}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
+              />
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => directVideoRef.current?.click()}
+                className="px-4 py-2.5 rounded-xl bg-amber-950 hover:bg-amber-900 border border-amber-800 text-amber-300 text-xs font-bold uppercase flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                title="Upload Homepage Video File From Computer"
+              >
+                <FolderOpen className="w-4 h-4 text-amber-400" />
+                <span>Select PC Video</span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1.5">

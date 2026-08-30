@@ -191,6 +191,12 @@ export function appendCacheBuster(url) {
   if (!url || typeof url !== 'string' || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
+
+  // Never append query parameter timestamps to video files as CDNs reject them
+  if (Boolean(url.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i))) {
+    return formatGoogleDriveUrl(url);
+  }
+
   const formatted = formatGoogleDriveUrl(url);
   if (formatted.includes('drive.google.com/uc') || formatted.includes('googleusercontent.com')) {
     return formatted;
@@ -380,17 +386,11 @@ export async function apiFetchBookings() {
 export async function apiUploadStorageFile(bucketName, file) {
   if (!file) return null;
 
-  // Compress image file to ensure fast loading & zero LocalStorage quota crashes
-  let compressedDataUrl = '';
-  try {
-    compressedDataUrl = await compressImageFile(file);
-  } catch (err) {
-    console.warn('Image compression error:', err);
-  }
+  const isVideo = file.type ? file.type.startsWith('video/') : false;
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const fileExt = file.name ? file.name.split('.').pop() : 'png';
+      const fileExt = file.name ? file.name.split('.').pop() : (isVideo ? 'mp4' : 'png');
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
       const filePath = `${fileName}`;
 
@@ -417,7 +417,22 @@ export async function apiUploadStorageFile(bucketName, file) {
     }
   }
 
-  // Persistent compressed Data URL fallback
+  // Instant 0-Memory Blob URL fallback for video files (Zero RAM usage, no Out of Memory crash)
+  if (isVideo) {
+    return {
+      publicUrl: URL.createObjectURL(file),
+      storagePath: null
+    };
+  }
+
+  // Persistent compressed Data URL fallback for images
+  let compressedDataUrl = '';
+  try {
+    compressedDataUrl = await compressImageFile(file);
+  } catch (err) {
+    console.warn('Image compression error:', err);
+  }
+
   return {
     publicUrl: compressedDataUrl,
     storagePath: null
@@ -497,6 +512,63 @@ export async function apiSaveSiteImage(imageData) {
   }
 
   await setPersistentItem('chitrakatha_site_images', saved);
+  return record;
+}
+
+/**
+ * Save Active Hero Video to Supabase DB table (site_images) and Persistent Storage
+ */
+export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', storagePath = null) {
+  const formattedUrl = appendCacheBuster(videoUrl);
+
+  const payload = {
+    section: 'hero',
+    image_url: formattedUrl,
+    storage_path: storagePath,
+    title: title,
+    category: 'Hero',
+    display_order: 1,
+    is_active: true,
+    updated_at: new Date().toISOString()
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      // 1. Deactivate all existing hero section records in DB table so only ONE active hero video exists
+      await supabase
+        .from('site_images')
+        .update({ is_active: false })
+        .eq('section', 'hero');
+
+      // 2. Insert new active hero video record into DB table
+      const { data, error } = await supabase
+        .from('site_images')
+        .insert([payload])
+        .select();
+
+      if (!error && data && data.length > 0) {
+        await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
+        return data[0];
+      }
+    } catch (e) {
+      console.warn('Supabase DB Hero Video save exception:', e);
+    }
+  }
+
+  // 3. Fallback: Save to Persistent Storage Engine (IndexedDB + LocalStorage)
+  const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
+  const updatedList = saved.map(item => item.section === 'hero' ? { ...item, is_active: false } : item);
+  
+  const record = {
+    id: `hero-video-${Date.now()}`,
+    ...payload,
+    created_at: new Date().toISOString()
+  };
+  
+  updatedList.unshift(record);
+  await setPersistentItem('chitrakatha_site_images', updatedList);
+  await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
+
   return record;
 }
 

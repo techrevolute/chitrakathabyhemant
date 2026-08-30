@@ -108,6 +108,54 @@ export async function removePersistentItem(key) {
 }
 
 /**
+ * Binary Video Blob Storage Helpers for IndexedDB
+ * Allows storing full local video files on disk so they survive F5 page refreshes & browser restarts
+ */
+export async function setVideoBlob(key, blobOrFile) {
+  try {
+    const db = await openDB();
+    if (db) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(blobOrFile, key);
+    }
+  } catch (err) {
+    console.warn(`IndexedDB put binary Blob error for "${key}":`, err);
+  }
+}
+
+export async function getVideoBlob(key) {
+  try {
+    const db = await openDB();
+    if (db) {
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    }
+  } catch (err) {
+    console.warn(`IndexedDB get binary Blob error for "${key}":`, err);
+  }
+  return null;
+}
+
+export async function removeVideoBlob(key) {
+  try {
+    const db = await openDB();
+    if (db) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.delete(key);
+    }
+  } catch (err) {
+    console.warn(`IndexedDB delete binary Blob error for "${key}":`, err);
+  }
+}
+
+/**
  * Custom React Hook for Synchronous & Asynchronous Safe Persistent State
  * Ensures state updates are saved to memory, LocalStorage, and IndexedDB simultaneously
  * without ever overwriting saved data with default values on page refresh.
