@@ -38,7 +38,7 @@ import {
 } from './data/initialData';
 
 import { TRANSLATIONS } from './data/translations';
-import { apiFetchSiteImages } from './lib/supabase';
+import { apiFetchSiteImages, subscribeToRealtimeChanges } from './lib/supabase';
 import { usePersistentState, removePersistentItem, getVideoBlob } from './lib/storage';
 
 export default function App() {
@@ -84,7 +84,24 @@ export default function App() {
     }
   }, [heroData?.url]);
 
-  // Active hero video is fetched directly from Supabase DB site_images table
+  // Load local computer video file Blob from IndexedDB on page load/refresh
+  useEffect(() => {
+    async function restoreLocalVideoBlob() {
+      try {
+        const storedBlob = await getVideoBlob('chitrakatha_hero_video_blob');
+        if (storedBlob && (storedBlob instanceof Blob || storedBlob instanceof File)) {
+          const freshBlobUrl = URL.createObjectURL(storedBlob);
+          setHeroData(prev => ({
+            ...prev,
+            url: freshBlobUrl
+          }));
+        }
+      } catch (err) {
+        console.warn('Error loading video blob from IndexedDB:', err);
+      }
+    }
+    restoreLocalVideoBlob();
+  }, []);
 
   // Restore local Engagement/Film video Blobs from IndexedDB on page load/refresh
   useEffect(() => {
@@ -113,7 +130,7 @@ export default function App() {
     restoreVideoGalleryBlobs();
   }, []);
 
-  // Sync with remote Supabase database if configured
+  // Sync with remote Supabase database and subscribe to Realtime live changes
   useEffect(() => {
     async function loadRemoteImages() {
       try {
@@ -135,6 +152,42 @@ export default function App() {
             }));
           }
 
+          // Remote Portfolio Photos Sync
+          const remotePortfolio = remoteImgs
+            .filter(img => img.section === 'portfolio' && img.is_active !== false)
+            .map(img => ({
+              id: img.id,
+              title: img.title || 'Portfolio Shoot',
+              category: img.category || 'Wedding',
+              image: img.image_url,
+              location: img.location || 'Maharashtra',
+              displayOrder: img.display_order || 1
+            }));
+          if (remotePortfolio.length > 0) {
+            setPortfolio(prev => {
+              const localOnly = prev.filter(p => p.id && String(p.id).startsWith('img-local-'));
+              return [...remotePortfolio, ...localOnly];
+            });
+          }
+
+          // Remote Cinematic Videos Sync
+          const remoteVideos = remoteImgs
+            .filter(img => img.section === 'video' && img.is_active !== false)
+            .map(img => ({
+              id: img.id,
+              title: img.title || 'Cinematic Film',
+              category: img.category || 'Wedding Film',
+              videoUrl: img.image_url,
+              thumbnail: img.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
+              location: img.location || 'Maharashtra'
+            }));
+          if (remoteVideos.length > 0) {
+            setVideos(prev => {
+              const localOnly = prev.filter(v => v.id && String(v.id).startsWith('vid-file-'));
+              return [...remoteVideos, ...localOnly];
+            });
+          }
+
           const aboutImg = remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
           if (aboutImg && aboutImg.image_url) {
             setAboutData(prev => ({ ...prev, profileImage: aboutImg.image_url }));
@@ -149,6 +202,15 @@ export default function App() {
       }
     }
     loadRemoteImages();
+
+    // Subscribe to Supabase Realtime changes so Admin edits appear live instantly on all devices!
+    const unsubscribe = subscribeToRealtimeChanges(() => {
+      loadRemoteImages();
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Modal Control States

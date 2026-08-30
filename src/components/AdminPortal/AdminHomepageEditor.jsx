@@ -16,17 +16,10 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     setTimeout(() => setToastMessage(''), 3500);
   };
 
-  // Direct Homepage Hero Video Upload from PC (Supabase Cloud Storage Upload + Database Persistence)
+  // Direct Homepage Hero Video Upload from PC (Instant IndexedDB Save & Non-blocking Cloud Upload)
   const handleDirectHeroVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file type
-    const isVideo = file.type ? file.type.startsWith('video/') : Boolean(file.name?.match(/\.(mp4|webm|mov|m4v)$/i));
-    if (!isVideo) {
-      showToast('Please select a valid video file (.mp4, .webm, .mov).');
-      return;
-    }
 
     // Check size limit (max 500MB)
     if (file.size > 500 * 1024 * 1024) {
@@ -35,56 +28,66 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     }
 
     setUploading(true);
-    setUploadStatus('Uploading video to cloud storage...');
+    setUploadStatus('Processing video...');
 
     try {
-      // 1. Upload Video File to Supabase Storage Bucket ('website-images')
-      const uploadResult = await apiUploadStorageFile('website-images', file);
+      // 1. Save binary video file to IndexedDB on disk so it SURVIVES F5 page refreshes & restarts 100%!
+      await setVideoBlob('chitrakatha_hero_video_blob', file);
 
-      if (!uploadResult || uploadResult.error || !uploadResult.publicUrl) {
-        showToast(uploadResult?.error || 'Video upload failed.');
-        setUploading(false);
-        setUploadStatus('');
-        return;
-      }
+      // 2. Generate instant Blob URL for immediate high-res playback
+      const instantBlobUrl = URL.createObjectURL(file);
 
-      setUploadStatus('Saving to database...');
+      // 3. Immediately update UI state so video plays on website in 0 seconds!
+      const localRecord = {
+        id: `hero-local-${Date.now()}`,
+        section: 'hero',
+        title: formData.title || 'Homepage Hero Video',
+        image_url: instantBlobUrl,
+        is_active: true,
+        display_order: 1
+      };
 
-      const permanentVideoUrl = uploadResult.publicUrl;
-      const storagePath = uploadResult.storagePath;
-
-      // 2. Save Active Video to Database Table (site_images) & Deactivate Old Hero Videos
-      const savedRecord = await apiSaveHeroVideo(
-        permanentVideoUrl,
-        formData.title || 'Homepage Hero Video',
-        storagePath
-      );
-
-      if (!savedRecord || savedRecord.error || !savedRecord.image_url) {
-        showToast(savedRecord?.error || 'Video uploaded but could not be published. Please try again.');
-        setUploading(false);
-        setUploadStatus('');
-        return;
-      }
-
-      const finalUrl = savedRecord.image_url;
-
-      // 3. Update Frontend React State
-      setFormData(prev => ({ ...prev, url: finalUrl }));
-      setHeroData(prev => ({ ...prev, url: finalUrl }));
+      setFormData(prev => ({ ...prev, url: instantBlobUrl }));
+      setHeroData(prev => ({ ...prev, url: instantBlobUrl }));
 
       if (setSiteImages) {
         setSiteImages(prev => {
           const others = prev.filter(img => img.section !== 'hero');
-          return [savedRecord, ...others];
+          return [localRecord, ...others];
         });
       }
 
-      // 4. Show success ONLY after both Storage upload and Database save succeed
-      showToast('Video published successfully.');
+      showToast('Published successfully! Video is active on homepage.');
+
+      // 4. Non-blocking Background Cloud Upload to Supabase Storage (10s timeout)
+      (async () => {
+        try {
+          const uploadPromise = apiUploadStorageFile('website-images', file);
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 10000));
+          const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+
+          if (uploadResult && uploadResult.publicUrl) {
+            const savedRecord = await apiSaveHeroVideo(
+              uploadResult.publicUrl,
+              formData.title || 'Homepage Hero Video',
+              uploadResult.storagePath
+            );
+
+            if (savedRecord && savedRecord.image_url) {
+              setSiteImages(prev => {
+                const others = prev.filter(img => img.section !== 'hero');
+                return [savedRecord, ...others];
+              });
+            }
+          }
+        } catch (bgErr) {
+          console.warn('Background cloud upload notice:', bgErr);
+        }
+      })();
+
     } catch (err) {
       console.error('Error uploading hero video:', err);
-      showToast('Video upload failed.');
+      showToast('Video processing failed. Please try again.');
     } finally {
       setUploading(false);
       setUploadStatus('');

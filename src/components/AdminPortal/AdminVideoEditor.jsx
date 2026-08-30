@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Trash2, Video, Check, Star, ArrowUp, ArrowDown, Eye, EyeOff, Film, Clock, Play, Upload, FolderOpen, RefreshCw, Edit3, X, Save } from 'lucide-react';
-import { formatGoogleDriveUrl, compressImageFile } from '../../lib/supabase';
+import { formatGoogleDriveUrl, compressImageFile, apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
 import { setVideoBlob, usePersistentState } from '../../lib/storage';
 
 const DEFAULT_VIDEO_CATEGORIES = [
@@ -126,7 +126,7 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
     }
   };
 
-  const handleAddVideoUrl = (e) => {
+  const handleAddVideoUrl = async (e) => {
     e.preventDefault();
     if (!newVideo.title || !newVideo.videoUrl) return;
 
@@ -146,6 +146,17 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
     };
 
     setVideos([item, ...videos]);
+
+    // Save video record directly to Supabase Cloud database
+    await apiSaveSiteImage({
+      section: 'video',
+      image_url: item.videoUrl,
+      title: item.title,
+      category: item.category,
+      display_order: item.displayOrder,
+      is_active: true
+    });
+
     setNewVideo({
       title: '', description: '', category: allAvailableCategories[0] || 'Wedding Film', duration: '03:30',
       thumbnail: '', videoUrl: '', location: 'Satana & Nashik', featured: true
@@ -153,8 +164,9 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
     triggerNotice();
   };
 
-  const handleDeleteVideo = (id) => {
+  const handleDeleteVideo = async (id) => {
     setVideos(videos.filter(v => v.id !== id));
+    await apiDeleteSiteImage(id);
     triggerNotice();
   };
 
