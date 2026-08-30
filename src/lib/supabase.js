@@ -383,10 +383,14 @@ export async function apiFetchBookings() {
 /**
  * Upload File to Supabase Storage Bucket or return compressed persistent Data URL
  */
+/**
+ * Upload File to Supabase Storage Bucket ('website-images')
+ * Returns publicUrl and storagePath on success, or { error } on failure.
+ */
 export async function apiUploadStorageFile(bucketName, file) {
-  if (!file) return null;
+  if (!file) return { error: 'No file provided.' };
 
-  const isVideo = file.type ? file.type.startsWith('video/') : false;
+  const isVideo = file.type ? file.type.startsWith('video/') : Boolean(file.name?.match(/\.(mp4|webm|mov|m4v)$/i));
 
   if (isSupabaseConfigured && supabase) {
     try {
@@ -396,7 +400,10 @@ export async function apiUploadStorageFile(bucketName, file) {
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName || 'website-images')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
       if (!uploadError) {
         const { data } = supabase.storage
@@ -404,39 +411,36 @@ export async function apiUploadStorageFile(bucketName, file) {
           .getPublicUrl(filePath);
 
         if (data && data.publicUrl) {
+          const finalUrl = isVideo ? data.publicUrl : appendCacheBuster(data.publicUrl);
           return {
-            publicUrl: appendCacheBuster(data.publicUrl),
+            publicUrl: finalUrl,
             storagePath: filePath
           };
         }
       } else {
-        console.warn('Supabase storage upload error:', uploadError);
+        console.error('Supabase storage upload error:', uploadError);
+        return { error: uploadError.message || 'Video upload failed.' };
       }
     } catch (e) {
-      console.warn('Supabase storage upload exception:', e);
+      console.error('Supabase storage upload exception:', e);
+      return { error: e.message || 'Video upload failed.' };
     }
   }
 
-  // Instant 0-Memory Blob URL fallback for video files (Zero RAM usage, no Out of Memory crash)
-  if (isVideo) {
-    return {
-      publicUrl: URL.createObjectURL(file),
-      storagePath: null
-    };
+  // Fallback ONLY for images if Supabase is not configured
+  if (!isVideo) {
+    try {
+      const compressedDataUrl = await compressImageFile(file);
+      return {
+        publicUrl: compressedDataUrl,
+        storagePath: null
+      };
+    } catch (err) {
+      console.warn('Image compression error:', err);
+    }
   }
 
-  // Persistent compressed Data URL fallback for images
-  let compressedDataUrl = '';
-  try {
-    compressedDataUrl = await compressImageFile(file);
-  } catch (err) {
-    console.warn('Image compression error:', err);
-  }
-
-  return {
-    publicUrl: compressedDataUrl,
-    storagePath: null
-  };
+  return { error: 'Supabase storage is not configured or reachable. Please check project credentials.' };
 }
 
 /**
@@ -516,14 +520,17 @@ export async function apiSaveSiteImage(imageData) {
 }
 
 /**
- * Save Active Hero Video to Supabase DB table (site_images) and Persistent Storage
+ * Save Active Hero Video to Supabase DB table (site_images)
+ * Deactivates previous hero videos so only ONE hero video is active.
  */
 export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', storagePath = null) {
-  const formattedUrl = appendCacheBuster(videoUrl);
+  if (!videoUrl || typeof videoUrl !== 'string' || videoUrl.startsWith('blob:')) {
+    return { error: 'Invalid video URL. Temporary blob URLs cannot be published.' };
+  }
 
   const payload = {
     section: 'hero',
-    image_url: formattedUrl,
+    image_url: videoUrl,
     storage_path: storagePath,
     title: title,
     category: 'Hero',
@@ -547,15 +554,19 @@ export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', 
         .select();
 
       if (!error && data && data.length > 0) {
-        await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
+        await setPersistentItem('chitrakatha_hero', { url: videoUrl, title: title });
         return data[0];
+      } else if (error) {
+        console.error('Supabase DB Hero Video insert error:', error);
+        return { error: error.message || 'Video uploaded but could not be published. Please try again.' };
       }
     } catch (e) {
-      console.warn('Supabase DB Hero Video save exception:', e);
+      console.error('Supabase DB Hero Video save exception:', e);
+      return { error: e.message || 'Video uploaded but could not be published. Please try again.' };
     }
   }
 
-  // 3. Fallback: Save to Persistent Storage Engine (IndexedDB + LocalStorage)
+  // Fallback if Supabase is not connected
   const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
   const updatedList = saved.map(item => item.section === 'hero' ? { ...item, is_active: false } : item);
   
@@ -567,20 +578,24 @@ export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', 
   
   updatedList.unshift(record);
   await setPersistentItem('chitrakatha_site_images', updatedList);
-  await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
+  await setPersistentItem('chitrakatha_hero', { url: videoUrl, title: title });
 
   return record;
 }
 
 /**
- * Delete Dynamic Site Image
+ * Delete Dynamic Site Image / Video
  */
 export async function apiDeleteSiteImage(id, storagePath = null) {
   if (isSupabaseConfigured && supabase) {
-    if (storagePath) {
-      await supabase.storage.from('website-images').remove([storagePath]);
+    try {
+      if (storagePath) {
+        await supabase.storage.from('website-images').remove([storagePath]);
+      }
+      await supabase.from('site_images').delete().eq('id', id);
+    } catch (e) {
+      console.warn('Delete site image error:', e);
     }
-    await supabase.from('site_images').delete().eq('id', id);
   }
 
   const saved = (await getPersistentItem('chitrakatha_site_images')) || [];

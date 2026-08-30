@@ -84,24 +84,7 @@ export default function App() {
     }
   }, [heroData?.url]);
 
-  // Load local computer video file Blob from IndexedDB on page load/refresh
-  useEffect(() => {
-    async function restoreLocalVideoBlob() {
-      try {
-        const storedBlob = await getVideoBlob('chitrakatha_hero_video_blob');
-        if (storedBlob && (storedBlob instanceof Blob || storedBlob instanceof File)) {
-          const freshBlobUrl = URL.createObjectURL(storedBlob);
-          setHeroData(prev => ({
-            ...prev,
-            url: freshBlobUrl
-          }));
-        }
-      } catch (err) {
-        console.warn('Error loading video blob from IndexedDB:', err);
-      }
-    }
-    restoreLocalVideoBlob();
-  }, []);
+  // Active hero video is fetched directly from Supabase DB site_images table
 
   // Restore local Engagement/Film video Blobs from IndexedDB on page load/refresh
   useEffect(() => {
