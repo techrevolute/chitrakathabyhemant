@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Layers, Check, Eye, EyeOff } from 'lucide-react';
 import { INITIAL_SERVICES } from '../../data/initialData';
+import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminServicesEditor({ services = INITIAL_SERVICES, setServices }) {
   const [newService, setNewService] = useState({
@@ -16,7 +17,7 @@ export default function AdminServicesEditor({ services = INITIAL_SERVICES, setSe
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!newService.title || !newService.image) return;
     const item = {
@@ -28,14 +29,27 @@ export default function AdminServicesEditor({ services = INITIAL_SERVICES, setSe
     if (setServices) {
       setServices([item, ...services]);
     }
+
+    // Save directly to Supabase Cloud Database
+    await apiSaveSiteImage({
+      id: item.id,
+      section: 'service',
+      image_url: item.image,
+      title: item.title,
+      category: 'Services Offered',
+      is_active: true,
+      data: item
+    });
+
     setNewService({ title: '', description: '', image: '', priceStarting: 'Contact for Quote' });
     triggerSaved();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (setServices) {
       setServices(services.filter(s => s.id !== id));
     }
+    await apiDeleteSiteImage(id);
     triggerSaved();
   };
 

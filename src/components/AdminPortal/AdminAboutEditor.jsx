@@ -135,14 +135,16 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
       setAboutData(updatedData);
     }
 
-    // Save image to site_images
+    // Save image & text data to site_images in Supabase Cloud
     const savedImg = await apiSaveSiteImage({
+      id: 'about-me-main',
       section: 'about',
       image_url: updatedData.profileImage,
-      title: 'Hemant Mandawade Profile Photo',
+      title: updatedData.ownerName || 'Hemant Mandawade Profile Photo',
       category: 'About Me',
       display_order: 1,
-      is_active: true
+      is_active: true,
+      data: updatedData
     });
 
     if (setSiteImages) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   HelpCircle, Plus, Trash2, Edit3, Check, Eye, EyeOff, ArrowUp, ArrowDown, HelpCircle as FaqIcon
 } from 'lucide-react';
+import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminFaqEditor({ faqs = [], setFaqs }) {
   const categories = ['Booking', 'Shoot Day', 'Deliverables', 'Pricing & Payments', 'General'];
@@ -22,7 +23,7 @@ export default function AdminFaqEditor({ faqs = [], setFaqs }) {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
-  const handleAddFaq = (e) => {
+  const handleAddFaq = async (e) => {
     e.preventDefault();
     if (!newFaq.question || !newFaq.answer) return;
 
@@ -35,20 +36,41 @@ export default function AdminFaqEditor({ faqs = [], setFaqs }) {
     };
 
     setFaqs([item, ...faqs]);
+
+    await apiSaveSiteImage({
+      id: item.id,
+      section: 'faq',
+      title: item.question,
+      category: item.category,
+      is_active: !item.hidden,
+      data: item
+    });
+
     setNewFaq({ category: 'Booking', question: '', answer: '' });
     triggerNotice();
   };
 
-  const handleUpdateFaq = (e) => {
+  const handleUpdateFaq = async (e) => {
     e.preventDefault();
     setFaqs(faqs.map(f => f.id === editingFaq.id ? editingFaq : f));
+
+    await apiSaveSiteImage({
+      id: editingFaq.id,
+      section: 'faq',
+      title: editingFaq.question,
+      category: editingFaq.category,
+      is_active: !editingFaq.hidden,
+      data: editingFaq
+    });
+
     setEditingFaq(null);
     triggerNotice();
   };
 
-  const handleDeleteFaq = (id, qText) => {
+  const handleDeleteFaq = async (id, qText) => {
     if (window.confirm(`Permanently delete FAQ: "${qText}"?`)) {
       setFaqs(faqs.filter(f => f.id !== id));
+      await apiDeleteSiteImage(id);
       triggerNotice();
     }
   };

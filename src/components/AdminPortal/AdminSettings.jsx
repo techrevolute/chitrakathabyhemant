@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, Check } from 'lucide-react';
 import { BUSINESS_INFO } from '../../data/initialData';
+import { apiSaveSiteImage } from '../../lib/supabase';
 
 export default function AdminSettings({ businessInfo = BUSINESS_INFO, setBusinessInfo }) {
   const [formData, setFormData] = useState({ ...businessInfo });
@@ -12,11 +13,22 @@ export default function AdminSettings({ businessInfo = BUSINESS_INFO, setBusines
     }
   }, [businessInfo]);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (setBusinessInfo) {
       setBusinessInfo({ ...formData });
     }
+
+    // Save directly to Supabase Cloud Database table site_images
+    await apiSaveSiteImage({
+      id: 'info-business-global',
+      section: 'business_info',
+      title: formData.name || 'Chitrakatha by Hemant',
+      category: 'Business Info',
+      is_active: true,
+      data: formData
+    });
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

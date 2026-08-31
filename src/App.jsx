@@ -213,6 +213,60 @@ export default function App() {
             setPackages(remotePackages);
           }
 
+          // Remote FAQs Sync
+          const remoteFaqs = remoteImgs
+            .filter(img => img.section === 'faq' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              category: img.category || 'General',
+              question: img.title || 'FAQ Question',
+              answer: 'FAQ Answer',
+              hidden: false
+            }));
+          if (remoteFaqs.length > 0) {
+            setFaqs(remoteFaqs);
+          }
+
+          // Remote Services Sync
+          const remoteServices = remoteImgs
+            .filter(img => img.section === 'service' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              title: img.title || 'Service Offering',
+              category: img.category || 'Services',
+              image: img.image_url,
+              description: 'Service description.',
+              priceStarting: 'Contact for Quote'
+            }));
+          if (remoteServices.length > 0) {
+            setServices(remoteServices);
+          }
+
+          // Remote Categories Sync
+          const remoteCategories = remoteImgs
+            .filter(img => img.section === 'category' && img.is_active !== false)
+            .map(img => ({
+              id: img.id,
+              name: img.title || img.category,
+              coverImage: img.image_url
+            }));
+          if (remoteCategories.length > 0) {
+            setCategories(prev => {
+              const names = remoteCategories.map(c => c.name);
+              const remaining = prev.filter(c => !names.includes(c.name));
+              return [...remoteCategories, ...remaining];
+            });
+          }
+
+          // Remote Business Info & Global Settings Sync
+          const businessImg = remoteImgs.find(img => img.section === 'business_info' && img.is_active !== false);
+          if (businessImg && businessImg.data) {
+            setBusinessInfo(prev => ({
+              ...prev,
+              ...businessImg.data
+            }));
+          }
+
           const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
           if (logoImg && logoImg.image_url) {
             setLogoUrl(logoImg.image_url);
