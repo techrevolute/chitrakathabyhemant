@@ -7,13 +7,12 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function checkDatabase() {
   console.log('Checking Supabase site_images table...');
-  const { data, error } = await supabase.from('site_images').select('*').limit(5);
+  const { data, error } = await supabase.from('site_images').select('*');
   if (error) {
     console.log('Table site_images error:', error.message, 'Code:', error.code);
-    return false;
   } else {
-    console.log('SUCCESS! Table site_images exists with', data.length, 'records.');
-    return true;
+    console.log('SUCCESS! Total rows in site_images:', data.length);
+    console.log('Rows:', JSON.stringify(data, null, 2));
   }
 }
 
