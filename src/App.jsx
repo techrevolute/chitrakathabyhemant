@@ -148,7 +148,22 @@ export default function App() {
             setServices(remoteServices);
           }
 
-          // 6. Sync Portfolio Photos
+          // 6. Sync Categories
+          const remoteCategories = remoteImgs
+            .filter(img => img.section === 'category' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              name: img.title,
+              slug: img.title.toLowerCase().replace(/\s+/g, '-'),
+              coverImage: img.image_url,
+              displayOrder: img.display_order || 1,
+              hidden: false
+            }));
+          if (remoteCategories.length > 0) {
+            setCategories(remoteCategories);
+          }
+
+          // 7. Sync Portfolio Photos
           const remotePortfolio = remoteImgs
             .filter(img => img.section === 'portfolio' && img.is_active !== false)
             .map(img => img.data || ({
@@ -164,13 +179,10 @@ export default function App() {
               displayOrder: img.display_order || 1
             }));
           if (remotePortfolio.length > 0) {
-            setPortfolio(prev => {
-              const localOnly = prev.filter(p => p.id && String(p.id).startsWith('img-local-'));
-              return [...remotePortfolio, ...localOnly];
-            });
+            setPortfolio(remotePortfolio);
           }
 
-          // 7. Sync Cinematic Videos
+          // 8. Sync Cinematic Videos
           const remoteVideos = remoteImgs
             .filter(img => img.section === 'video' && img.is_active !== false)
             .map(img => img.data || ({
@@ -185,13 +197,10 @@ export default function App() {
               hidden: false
             }));
           if (remoteVideos.length > 0) {
-            setVideos(prev => {
-              const localOnly = prev.filter(v => v.id && String(v.id).startsWith('vid-file-'));
-              return [...remoteVideos, ...localOnly];
-            });
+            setVideos(remoteVideos);
           }
 
-          // 8. Sync Packages
+          // 9. Sync Packages
           const remotePackages = remoteImgs
             .filter(img => img.section === 'package' && img.is_active !== false)
             .map(img => img.data || ({
@@ -207,7 +216,7 @@ export default function App() {
             setPackages(remotePackages);
           }
 
-          // 9. Sync FAQs
+          // 10. Sync FAQs
           const remoteFaqs = remoteImgs
             .filter(img => img.section === 'faq' && img.is_active !== false)
             .map(img => img.data || ({
@@ -220,7 +229,7 @@ export default function App() {
             setFaqs(remoteFaqs);
           }
 
-          // 10. Sync Brochures
+          // 11. Sync Brochures
           const remoteBrochures = remoteImgs
             .filter(img => img.section === 'brochure' && img.is_active !== false)
             .map(img => img.data || ({
@@ -234,7 +243,7 @@ export default function App() {
             setBrochures(remoteBrochures);
           }
 
-          // 11. Sync Logo
+          // 12. Sync Logo
           const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
           if (logoImg && logoImg.image_url) {
             setLogoUrl(logoImg.image_url);

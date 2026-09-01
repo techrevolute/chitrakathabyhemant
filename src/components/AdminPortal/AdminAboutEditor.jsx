@@ -42,28 +42,19 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
       const result = await apiUploadStorageFile('website-images', file);
       if (result && result.publicUrl) {
         const updatedUrl = appendCacheBuster(result.publicUrl);
-        setFormData(prev => ({ ...prev, profileImage: updatedUrl }));
+        const updatedState = { ...formData, profileImage: updatedUrl };
+        setFormData(updatedState);
         
-        // Instantly update parent state so live About section updates immediately!
         if (setAboutData) {
-          setAboutData(prev => ({ ...prev, profileImage: updatedUrl }));
+          setAboutData(updatedState);
         }
 
-        // Save to site_images table / state
-        const savedImg = await apiSaveSiteImage({
-          section: 'about',
-          image_url: updatedUrl,
-          storage_path: result.storagePath,
-          title: 'Hemant Mandawade Profile Photo',
-          category: 'About Me',
-          display_order: 1,
-          is_active: true
-        });
+        const savedRecord = await apiSaveAboutData(updatedState);
 
-        if (setSiteImages) {
+        if (setSiteImages && savedRecord) {
           setSiteImages(prev => {
-            const filtered = prev.filter(img => img.section !== 'about');
-            return [savedImg, ...filtered];
+            const filtered = prev.filter(img => img.id !== 'about-main' && img.section !== 'about');
+            return [savedRecord, ...filtered];
           });
         }
 
@@ -71,7 +62,7 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
       }
     } catch (err) {
       console.error('File upload error:', err);
-      showToast('Error uploading image file');
+      showToast(`Upload failed: ${err.message || 'Check storage'}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -79,25 +70,26 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
   };
 
   // Handle replace photo URL
-  const handleReplacePhotoUrl = () => {
+  const handleReplacePhotoUrl = async () => {
     const newUrl = window.prompt('Enter new Profile Image URL (or Google Drive share link):', formData.profileImage);
     if (newUrl && newUrl.trim()) {
       const formatted = formatGoogleDriveUrl(newUrl.trim());
       const busterUrl = appendCacheBuster(formatted);
-      setFormData(prev => ({ ...prev, profileImage: busterUrl }));
+      const updatedState = { ...formData, profileImage: busterUrl };
+      setFormData(updatedState);
       
       if (setAboutData) {
-        setAboutData(prev => ({ ...prev, profileImage: busterUrl }));
+        setAboutData(updatedState);
       }
 
-      apiSaveSiteImage({
-        section: 'about',
-        image_url: busterUrl,
-        title: 'Hemant Mandawade Profile Photo',
-        category: 'About Me',
-        display_order: 1,
-        is_active: true
-      });
+      const savedRecord = await apiSaveAboutData(updatedState);
+
+      if (setSiteImages && savedRecord) {
+        setSiteImages(prev => {
+          const filtered = prev.filter(img => img.id !== 'about-main' && img.section !== 'about');
+          return [savedRecord, ...filtered];
+        });
+      }
 
       showToast('Image updated successfully');
     }

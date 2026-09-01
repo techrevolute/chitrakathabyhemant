@@ -99,8 +99,9 @@ export default function Hero({ heroData, siteImages = [], t, onOpenBooking, setA
             muted={true}
             playsInline={true}
             preload="auto"
+            poster="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1920"
             onError={(e) => {
-              console.warn('Hero video error, setting reliable fallback video');
+              console.warn('[HERO VIDEO ERROR] Media failed to stream from:', currentSlide.url);
               if (e.target && e.target.src !== 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4') {
                 e.target.src = 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4';
                 e.target.load();

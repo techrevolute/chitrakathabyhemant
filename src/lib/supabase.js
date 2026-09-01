@@ -808,6 +808,42 @@ export async function apiSaveBrochureItem(brochureData) {
 }
 
 /**
+ * Save / Update Single Portfolio Category
+ */
+export async function apiSaveCategoryItem(categoryData) {
+  const payload = {
+    id: categoryData.id || `cat-${Date.now()}`,
+    section: 'category',
+    image_url: categoryData.coverImage || '',
+    title: categoryData.name || '',
+    category: 'Categories',
+    display_order: categoryData.displayOrder || 0,
+    is_active: !categoryData.hidden,
+    data: categoryData,
+    updated_at: new Date().toISOString()
+  };
+  return await apiSaveSiteImage(payload);
+}
+
+/**
+ * Save / Update Single Portfolio Photo Item
+ */
+export async function apiSavePortfolioItem(photoData) {
+  const payload = {
+    id: photoData.id || `img-${Date.now()}`,
+    section: 'portfolio',
+    image_url: photoData.image || '',
+    title: photoData.title || '',
+    category: photoData.category || 'Wedding',
+    display_order: photoData.displayOrder || 0,
+    is_active: !photoData.hidden,
+    data: photoData,
+    updated_at: new Date().toISOString()
+  };
+  return await apiSaveSiteImage(payload);
+}
+
+/**
  * Delete Dynamic Site Image or Entity by ID from Supabase
  */
 export async function apiDeleteSiteImage(id, storagePath = null) {

@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import {
   formatGoogleDriveUrl, appendCacheBuster, handleImageError, compressImageFile,
-  extractGoogleDriveFolderId, fetchGoogleDriveFolderPhotos, apiSaveSiteImage, apiUploadStorageFile
+  extractGoogleDriveFolderId, fetchGoogleDriveFolderPhotos, apiSaveSiteImage, apiUploadStorageFile,
+  apiSaveCategoryItem, apiSavePortfolioItem, apiDeleteSiteImage
 } from '../../lib/supabase';
 
 export default function AdminPortfolioEditor({
@@ -180,30 +181,26 @@ export default function AdminPortfolioEditor({
             watermarked: applyWatermarkOnUpload && watermark.enabled,
             displayOrder: portfolio.length + index + 1
           };
-
           newItems.push(item);
-
-          // Save category & photo record to Supabase
-          apiSaveSiteImage({
-            section: 'portfolio',
-            image_url: finalImageUrl,
-            title: item.title,
-            category: targetCat,
-            display_order: item.displayOrder,
-            is_active: true
-          });
+          await apiSavePortfolioItem(item);
         }
       } catch (err) {
-        console.error('Error processing uploaded image:', err);
+        console.error('File process error:', err);
       }
     }
 
     if (newItems.length > 0) {
-      setPortfolio(prev => [...newItems, ...prev]);
+      setPortfolio([...newItems, ...portfolio]);
       triggerNotice();
     }
-
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const handleDrop = (e) => {
@@ -215,7 +212,7 @@ export default function AdminPortfolioEditor({
   };
 
   // --- CATEGORY HANDLERS ---
-  const handleCreateCategory = (e) => {
+  const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!newCat.name.trim()) return;
     const cat = {
@@ -227,24 +224,30 @@ export default function AdminPortfolioEditor({
       hidden: false
     };
     setCategories([...categories, cat]);
+    await apiSaveCategoryItem(cat);
     setNewCat({ name: '', coverImage: '' });
     triggerNotice();
   };
 
-  const handleDeleteCategory = (id, catName) => {
+  const handleDeleteCategory = async (id, catName) => {
     if (window.confirm(`Delete category "${catName}"? Photos in this category will remain.`)) {
       setCategories(categories.filter(c => c.id !== id));
+      await apiDeleteSiteImage(id);
       triggerNotice();
     }
   };
 
-  const handleToggleHideCategory = (id) => {
-    setCategories(categories.map(c => c.id === id ? { ...c, hidden: !c.hidden } : c));
+  const handleToggleHideCategory = async (id) => {
+    const target = categories.find(c => c.id === id);
+    if (!target) return;
+    const updated = { ...target, hidden: !target.hidden };
+    setCategories(categories.map(c => c.id === id ? updated : c));
+    await apiSaveCategoryItem(updated);
     triggerNotice();
   };
 
   // --- PHOTO HANDLERS ---
-  const handleAddSinglePhoto = (e) => {
+  const handleAddSinglePhoto = async (e) => {
     e.preventDefault();
     if (!newPhoto.title || !newPhoto.image) return;
 
@@ -267,6 +270,7 @@ export default function AdminPortfolioEditor({
     };
 
     setPortfolio([item, ...portfolio]);
+    await apiSavePortfolioItem(item);
     setNewPhoto({
       title: '', description: '', categoryName: selectedCatFilter === 'All' ? (categories[0]?.name || 'Wedding Photography') : selectedCatFilter,
       image: '', altText: '', location: 'Maharashtra', featured: true
@@ -274,29 +278,41 @@ export default function AdminPortfolioEditor({
     triggerNotice();
   };
 
-  const handleUpdatePhoto = (e) => {
+  const handleUpdatePhoto = async (e) => {
     e.preventDefault();
     const updated = {
       ...editingPhoto,
       image: formatGoogleDriveUrl(editingPhoto.image)
     };
     setPortfolio(portfolio.map(p => p.id === editingPhoto.id ? updated : p));
+    await apiSavePortfolioItem(updated);
     setEditingPhoto(null);
     triggerNotice();
   };
 
-  const handleDeletePhoto = (id) => {
-    setPortfolio(portfolio.filter(p => p.id !== id));
+  const handleDeletePhoto = async (id) => {
+    if (window.confirm('Delete this photo from the portfolio?')) {
+      setPortfolio(portfolio.filter(p => p.id !== id));
+      await apiDeleteSiteImage(id);
+      triggerNotice();
+    }
+  };
+
+  const handleToggleHidePhoto = async (id) => {
+    const target = portfolio.find(p => p.id === id);
+    if (!target) return;
+    const updated = { ...target, hidden: !target.hidden };
+    setPortfolio(portfolio.map(p => p.id === id ? updated : p));
+    await apiSavePortfolioItem(updated);
     triggerNotice();
   };
 
-  const handleToggleHidePhoto = (id) => {
-    setPortfolio(portfolio.map(p => p.id === id ? { ...p, hidden: !p.hidden } : p));
-    triggerNotice();
-  };
-
-  const handleToggleFeatured = (id) => {
-    setPortfolio(portfolio.map(p => p.id === id ? { ...p, featured: !p.featured } : p));
+  const handleToggleFeatured = async (id) => {
+    const target = portfolio.find(p => p.id === id);
+    if (!target) return;
+    const updated = { ...target, featured: !target.featured };
+    setPortfolio(portfolio.map(p => p.id === id ? updated : p));
+    await apiSavePortfolioItem(updated);
     triggerNotice();
   };
 
@@ -309,25 +325,29 @@ export default function AdminPortfolioEditor({
       const file = e.target.files?.[0];
       if (file) {
         try {
-          const compressedUrl = await compressImageFile(file, 1600, 1600, 0.82);
-          if (compressedUrl) {
-            setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: compressedUrl } : p));
+          const uploadRes = await apiUploadStorageFile('website-images', file);
+          if (uploadRes?.publicUrl) {
+            const updated = { ...current, image: uploadRes.publicUrl };
+            setPortfolio(portfolio.map(p => p.id === id ? updated : p));
+            await apiSavePortfolioItem(updated);
             triggerNotice();
           }
         } catch (err) {
-          console.error('Error compressing image:', err);
+          console.error('Error uploading replacement image:', err);
         }
       }
     };
 
-    const choice = window.confirm("Change Photo Thumbnail:\n\nClick OK to select a new image file from your computer.\nClick Cancel to paste an Image URL or Google Drive link instead.");
+    const choice = window.confirm("Change Photo:\n\nClick OK to select a new image file from your computer.\nClick Cancel to paste an Image URL or Google Drive link instead.");
     if (choice) {
       input.click();
     } else {
       const newUrl = window.prompt("Enter replacement Image URL or Google Drive share link:", current?.image);
       if (newUrl && newUrl.trim()) {
         const formatted = formatGoogleDriveUrl(newUrl.trim());
-        setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: formatted } : p));
+        const updated = { ...current, image: formatted };
+        setPortfolio(portfolio.map(p => p.id === id ? updated : p));
+        apiSavePortfolioItem(updated);
         triggerNotice();
       }
     }
