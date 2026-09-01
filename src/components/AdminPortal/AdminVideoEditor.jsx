@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Trash2, Video, Check, Star, ArrowUp, ArrowDown, Eye, EyeOff, Film, Clock, Play, Upload, FolderOpen, RefreshCw, Edit3, X, Save } from 'lucide-react';
-import { formatGoogleDriveUrl, compressImageFile, apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
+import { Plus, Trash2, Video, Check, Star, ArrowUp, ArrowDown, Eye, EyeOff, Film, Clock, Play, Upload, FolderOpen, RefreshCw, Edit3, X, Save, Loader2 } from 'lucide-react';
+import { formatGoogleDriveUrl, compressImageFile, apiSaveSiteImage, apiDeleteSiteImage, apiUploadStorageFile } from '../../lib/supabase';
 import { setVideoBlob, usePersistentState } from '../../lib/storage';
 
 const DEFAULT_VIDEO_CATEGORIES = [
@@ -82,8 +82,17 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
       const cleanFileName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
       const id = `vid-file-${Date.now()}-${index}`;
 
-      await setVideoBlob(`video_file_${id}`, file);
-      const videoBlobUrl = URL.createObjectURL(file);
+      let permanentVideoUrl = '';
+      try {
+        const uploadRes = await apiUploadStorageFile('website-images', file);
+        permanentVideoUrl = uploadRes?.publicUrl || '';
+      } catch (err) {
+        console.error('Video storage upload error:', err);
+        alert(`Video upload failed: ${err.message || 'Check storage permissions'}`);
+        continue;
+      }
+
+      if (!permanentVideoUrl) continue;
 
       const item = {
         id: id,
@@ -92,7 +101,7 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
         category: newVideo.category || allAvailableCategories[0] || 'Wedding Film',
         duration: newVideo.duration || '04:15',
         thumbnail: newVideo.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-        videoUrl: videoBlobUrl,
+        videoUrl: permanentVideoUrl,
         location: newVideo.location || 'Satana & Nashik',
         views: '1.2k',
         featured: true,
@@ -101,6 +110,16 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
       };
 
       setVideos(prev => [item, ...prev]);
+
+      // Save video record directly to Supabase Cloud database
+      await apiSaveSiteImage({
+        section: 'video',
+        image_url: item.videoUrl,
+        title: item.title,
+        category: item.category,
+        display_order: item.displayOrder,
+        is_active: true
+      });
     }
 
     setNewVideo({
@@ -111,11 +130,19 @@ export default function AdminVideoEditor({ videos = [], setVideos, categories = 
     if (videoFileInputRef.current) videoFileInputRef.current.value = '';
   };
 
-  const handleThumbFileSelect = (e) => {
+  const handleThumbFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const thumbBlobUrl = URL.createObjectURL(file);
-    setNewVideo(prev => ({ ...prev, thumbnail: thumbBlobUrl }));
+    try {
+      const uploadRes = await apiUploadStorageFile('website-images', file);
+      if (uploadRes?.publicUrl) {
+        setNewVideo(prev => ({ ...prev, thumbnail: uploadRes.publicUrl }));
+      }
+    } catch (err) {
+      console.warn('Thumbnail upload error:', err);
+      const compressed = await compressImageFile(file, 800, 600, 0.85);
+      setNewVideo(prev => ({ ...prev, thumbnail: compressed }));
+    }
   };
 
   const handleDrop = (e) => {

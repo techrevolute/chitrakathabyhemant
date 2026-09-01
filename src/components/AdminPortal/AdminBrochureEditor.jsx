@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  FileText, Upload, Trash2, Eye, Download, Check, AlertCircle, RefreshCw, Star, Plus, ShieldCheck
+  FileText, Upload, Trash2, Eye, Download, Check, AlertCircle, RefreshCw, Star, Plus, ShieldCheck, Loader2
 } from 'lucide-react';
-import { apiSaveBrochureItem, apiDeleteSiteImage } from '../../lib/supabase';
+import { apiSaveBrochureItem, apiDeleteSiteImage, apiUploadStorageFile } from '../../lib/supabase';
 
 export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
   const categories = [
@@ -15,6 +15,8 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
 
   const [selectedCategory, setSelectedCategory] = useState(categories[0]);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const pdfInputRef = useRef(null);
 
   const [newPdf, setNewPdf] = useState({
     name: '',
@@ -26,6 +28,29 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
   const triggerNotice = () => {
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
+  };
+
+  const handlePdfFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const uploadRes = await apiUploadStorageFile('website-images', file);
+      if (uploadRes?.publicUrl) {
+        setNewPdf(prev => ({
+          ...prev,
+          fileUrl: uploadRes.publicUrl,
+          name: prev.name || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
+        }));
+      }
+    } catch (err) {
+      console.error('PDF upload error:', err);
+      alert(`PDF upload failed: ${err.message || 'Check storage'}`);
+    } finally {
+      setUploading(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
   };
 
   const handleAddBrochure = async (e) => {
@@ -162,7 +187,25 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
           </div>
 
           <div className="space-y-1 sm:col-span-2">
-            <label className="text-[11px] font-bold text-stone-300 uppercase">PDF Document File URL *</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-stone-300 uppercase">PDF Document File URL *</label>
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={uploading}
+                className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold"
+              >
+                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {uploading ? 'Uploading PDF...' : 'Choose PDF from PC'}
+              </button>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={handlePdfFileUpload}
+              />
+            </div>
             <input
               type="url"
               required

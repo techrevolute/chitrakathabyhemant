@@ -491,7 +491,10 @@ export async function apiUploadStorageFile(bucketName = 'website-images', file) 
 
   if (uploadError) {
     console.error('[Storage Upload Error]:', uploadError.message);
-    throw new Error(`Storage Upload Error: ${uploadError.message || 'Bucket not found or permission denied'}`);
+    if (uploadError.message && uploadError.message.toLowerCase().includes('bucket not found')) {
+      throw new Error('Supabase Storage bucket "website-images" does not exist yet. Please create the public bucket "website-images" in your Supabase Dashboard under Storage -> New Bucket (with Public Bucket checked).');
+    }
+    throw new Error(`Storage Upload Error: ${uploadError.message || 'Permission denied'}`);
   }
 
   const { data } = supabase.storage

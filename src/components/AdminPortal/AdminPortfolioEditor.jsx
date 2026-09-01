@@ -157,10 +157,12 @@ export default function AdminPortfolioEditor({
       try {
         let finalImageUrl = '';
         try {
-          const uploadRes = await apiUploadStorageFile('portfolio-images', file);
-          finalImageUrl = uploadRes?.publicUrl || (await compressImageFile(file, 1600, 1600, 0.82));
+          const uploadRes = await apiUploadStorageFile('website-images', file);
+          finalImageUrl = uploadRes?.publicUrl || '';
         } catch (uErr) {
-          finalImageUrl = await compressImageFile(file, 1600, 1600, 0.82);
+          console.error('Portfolio upload error:', uErr);
+          alert(`Upload failed for ${file.name}: ${uErr.message || 'Check storage'}`);
+          continue;
         }
 
         if (finalImageUrl) {
