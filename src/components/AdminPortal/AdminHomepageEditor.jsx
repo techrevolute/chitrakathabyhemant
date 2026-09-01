@@ -1,10 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Save, Check, Plus, Upload, FolderOpen, AlertCircle, Trash2, ArrowUp, ArrowDown, RefreshCw, Star } from 'lucide-react';
-import { apiUploadStorageFile, apiSaveSiteImage, apiSaveHeroVideo, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
+import { apiUploadStorageFile, apiSaveSiteImage, apiSaveHeroVideo, apiSaveHeroData, apiDeleteSiteImage, appendCacheBuster } from '../../lib/supabase';
 import { setVideoBlob, removeVideoBlob } from '../../lib/storage';
 
 export default function AdminHomepageEditor({ heroData, setHeroData, siteImages = [], setSiteImages, portfolio = [], setPortfolio }) {
-  const [formData, setFormData] = useState({ ...heroData });
+  const [formData, setFormData] = useState({
+    title: heroData?.title || 'Chitrakatha by Hemant',
+    subtitle: heroData?.subtitle || 'Every Moment Has A Story. Professional luxury wedding, pre-wedding, fashion & drone photography across Maharashtra.',
+    tagline: heroData?.tagline || 'LUXURY WEDDING & CINEMATIC PHOTOGRAPHY',
+    url: heroData?.url || ''
+  });
+
+  // Sync state if heroData changes from parent
+  useEffect(() => {
+    if (heroData) {
+      setFormData(prev => ({
+        ...prev,
+        ...heroData,
+        title: heroData.title !== undefined ? heroData.title : prev.title,
+        subtitle: heroData.subtitle !== undefined ? heroData.subtitle : prev.subtitle,
+        tagline: heroData.tagline !== undefined ? heroData.tagline : prev.tagline,
+        url: heroData.url !== undefined ? heroData.url : prev.url
+      }));
+    }
+  }, [heroData]);
+
   const [toastMessage, setToastMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
@@ -16,7 +36,7 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     setTimeout(() => setToastMessage(''), 3500);
   };
 
-  // Direct Homepage Hero Video Upload from PC (Uploads directly to Supabase Storage & Database)
+  // Direct Homepage Hero Video Upload from PC (Uploads directly to Cloud Storage & DB)
   const handleDirectHeroVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -28,47 +48,37 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     }
 
     setUploading(true);
-    setUploadStatus('Uploading video to Supabase Storage...');
+    setUploadStatus('Uploading video to Cloud Storage...');
 
     try {
-      // 1. Upload Video File directly to Supabase Storage Bucket
       const uploadResult = await apiUploadStorageFile('website-images', file);
+      if (uploadResult && uploadResult.publicUrl && !uploadResult.publicUrl.startsWith('blob:')) {
+        setUploadStatus('Saving to production database...');
+        const busterUrl = appendCacheBuster(uploadResult.publicUrl);
 
-      if (!uploadResult || !uploadResult.publicUrl) {
-        showToast('Video upload failed. Please check connection and try again.');
-        return;
-      }
+        const savedRecord = await apiSaveHeroData({
+          ...formData,
+          url: busterUrl
+        });
 
-      setUploadStatus('Saving to Supabase Database...');
+        if (savedRecord) {
+          setFormData(prev => ({ ...prev, url: busterUrl }));
+          setHeroData(prev => ({ ...prev, ...formData, url: busterUrl }));
 
-      const permanentVideoUrl = uploadResult.publicUrl;
-      const storagePath = uploadResult.storagePath;
-
-      // 2. Save Permanent Supabase Storage URL to Supabase Cloud Database Table
-      const savedRecord = await apiSaveHeroVideo(
-        permanentVideoUrl,
-        formData.title || 'Homepage Hero Video',
-        storagePath
-      );
-
-      if (savedRecord && savedRecord.image_url) {
-        const finalUrl = savedRecord.image_url;
-        setFormData(prev => ({ ...prev, url: finalUrl }));
-        setHeroData(prev => ({ ...prev, url: finalUrl }));
-
-        if (setSiteImages) {
-          setSiteImages(prev => {
-            const others = prev.filter(img => img.section !== 'hero');
-            return [savedRecord, ...others];
-          });
+          if (setSiteImages) {
+            setSiteImages(prev => {
+              const others = prev.filter(img => img.id !== 'hero-main');
+              return [savedRecord, ...others];
+            });
+          }
+          showToast('Video uploaded & saved to production database!');
         }
-        showToast('Video published live successfully!');
       } else {
-        showToast('Video database save failed. Please try again.');
+        showToast('Cloud upload failed. Please try a smaller video or direct MP4 URL.');
       }
     } catch (err) {
       console.error('Error uploading hero video:', err);
-      showToast('Video upload failed. Please try again.');
+      showToast(`Video upload failed: ${err.message || 'Check storage connection'}`);
     } finally {
       setUploading(false);
       setUploadStatus('');
@@ -85,35 +95,38 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
     if (!file) return;
 
     setUploading(true);
-    setUploadStatus('Uploading video to cloud storage...');
+    setUploadStatus('Uploading file to cloud storage...');
 
     try {
       const result = await apiUploadStorageFile('website-images', file);
       if (result && result.publicUrl) {
-        setUploadStatus('Saving to database...');
+        setUploadStatus('Saving to production database...');
         const busterUrl = appendCacheBuster(result.publicUrl);
         const newRecord = await apiSaveSiteImage({
+          id: `hero-slide-${Date.now()}`,
           section: 'hero',
           image_url: busterUrl,
           storage_path: result.storagePath,
           title: `Hero Slide ${heroSlides.length + 1}`,
           category: 'Hero',
           display_order: heroSlides.length + 1,
-          is_active: true
+          is_active: true,
+          data: {
+            title: `Hero Slide ${heroSlides.length + 1}`,
+            url: busterUrl
+          }
         });
 
         if (setSiteImages) {
           setSiteImages(prev => [...prev, newRecord]);
         }
-        setFormData(prev => ({ ...prev, url: busterUrl }));
-        setHeroData(prev => ({ ...prev, url: busterUrl }));
-        showToast('Published successfully!');
+        showToast('Hero slide uploaded & published successfully!');
       } else {
-        showToast('Video upload failed. Please try again.');
+        showToast('Upload failed. Please try again.');
       }
     } catch (err) {
       console.error('Error adding hero file:', err);
-      showToast('Video upload failed. Please try again.');
+      showToast('Upload failed. Please check connection.');
     } finally {
       setUploading(false);
       setUploadStatus('');
@@ -122,7 +135,7 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
 
   // Delete Hero Slide
   const handleDeleteHeroSlide = async (id, storagePath) => {
-    if (window.confirm('Are you sure you want to delete this Hero image/video?')) {
+    if (window.confirm('Are you sure you want to delete this Hero image/video slide?')) {
       await apiDeleteSiteImage(id, storagePath);
       if (setSiteImages) {
         setSiteImages(prev => prev.filter(img => img.id !== id));
@@ -132,7 +145,7 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
   };
 
   // Reorder Hero Slide
-  const handleReorderHeroSlide = (id, direction) => {
+  const handleReorderHeroSlide = async (id, direction) => {
     const idx = heroSlides.findIndex(img => img.id === id);
     if (idx === -1) return;
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -151,47 +164,59 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
         return [...others, ...finalSlides];
       });
     }
+
+    // Persist reordered slides
+    for (const slide of finalSlides) {
+      apiSaveSiteImage(slide);
+    }
+
     showToast('Hero order updated successfully');
   };
 
-  // Save/Publish Hero Banner
+  // Save/Publish Hero Banner (Title, Subtitle, Tagline, URL) directly to Supabase Production
   const handleSaveHero = async (e) => {
     e.preventDefault();
     if (!formData.url) {
-      showToast('Missing video URL. Please select a video file or enter a valid URL.');
+      showToast('Missing video/image URL. Please select a video file or enter a valid URL.');
       return;
     }
 
     setUploading(true);
-    setUploadStatus('Saving to database...');
+    setUploadStatus('Saving to central production database...');
 
     try {
       if (formData.url.startsWith('http://') || formData.url.startsWith('https://')) {
         await removeVideoBlob('chitrakatha_hero_video_blob');
       }
 
-      const savedRecord = await apiSaveHeroVideo(
-        formData.url,
-        formData.title || 'Homepage Hero Video',
-        null
-      );
+      const savedRecord = await apiSaveHeroData({
+        url: formData.url,
+        title: formData.title || 'Chitrakatha by Hemant',
+        subtitle: formData.subtitle || '',
+        tagline: formData.tagline || 'LUXURY WEDDING & CINEMATIC PHOTOGRAPHY'
+      });
 
-      if (savedRecord && savedRecord.image_url) {
-        const finalUrl = savedRecord.image_url;
-        setHeroData({ ...formData, url: finalUrl });
+      if (savedRecord) {
+        const finalData = savedRecord.data || {
+          title: savedRecord.title,
+          url: savedRecord.image_url,
+          subtitle: formData.subtitle,
+          tagline: formData.tagline
+        };
+
+        setHeroData(prev => ({ ...prev, ...finalData }));
+
         if (setSiteImages) {
           setSiteImages(prev => {
-            const others = prev.filter(img => img.section !== 'hero');
+            const others = prev.filter(img => img.id !== 'hero-main');
             return [savedRecord, ...others];
           });
         }
-        showToast('Published successfully!');
-      } else {
-        showToast('Video upload failed. Please try again.');
+        showToast('Published successfully! Synced across all devices.');
       }
     } catch (err) {
-      console.error('Error saving hero:', err);
-      showToast('Video upload failed. Please try again.');
+      console.error('[AdminHomepageEditor] Error saving hero:', err);
+      showToast(`Database save failed: ${err.message || 'Check database connection'}`);
     } finally {
       setUploading(false);
       setUploadStatus('');
@@ -330,16 +355,16 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
         <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Hero Headline & Typography</h3>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Hero Primary Video/Image URL (Default)</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Hero Primary Video/Image URL (Central Database)</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 required
-                placeholder="Paste Video URL or click button to pick video file from computer"
+                placeholder="Paste MP4 URL, YouTube Link, Vimeo, or Google Drive Video link"
                 value={formData.url || ''}
                 onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white"
+                className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-mono text-white focus:border-amber-400 focus:outline-none"
               />
               <button
                 type="button"
@@ -352,6 +377,51 @@ export default function AdminHomepageEditor({ heroData, setHeroData, siteImages 
                 <span>Select PC Video</span>
               </button>
             </div>
+            <p className="text-[11px] text-stone-400">
+              💡 <strong>Instant Universal Sync:</strong> Paste any direct MP4 URL, YouTube video link, Vimeo link, or Google Drive video share link. When you click <em>Save &amp; Publish</em>, it synchronizes to the production database and updates on Netlify and all devices!
+            </p>
+
+            {/* Quick 1-Click Cinematic Video Presets */}
+            <div className="pt-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-1.5">Or Choose 1-Click High-Definition Cinematic Video Preset:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { name: '✨ Romantic Sunset Couple Walk', url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4' },
+                  { name: '🔥 Sacred Mandap Traditional Ceremony', url: 'https://assets.mixkit.co/videos/preview/mixkit-traditional-wedding-ceremony-details-43893-large.mp4' },
+                  { name: '🌅 Golden Hour Sunset Portrait', url: 'https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-posing-in-a-field-at-sunset-43894-large.mp4' },
+                  { name: '🌲 Royal Forest Romance Shoot', url: 'https://assets.mixkit.co/videos/preview/mixkit-couple-posing-in-the-forest-on-their-wedding-day-43895-large.mp4' },
+                  { name: '👑 Grand Palace Heritage Walk', url: 'https://assets.mixkit.co/videos/preview/mixkit-bride-and-groom-walking-outside-a-palace-43896-large.mp4' }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, url: preset.url }));
+                      showToast(`Selected "${preset.name}". Click "Save & Publish" below to apply!`);
+                    }}
+                    className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                      formData.url === preset.url
+                        ? 'bg-amber-950/80 border-amber-500 text-amber-200'
+                        : 'bg-stone-900 border-stone-800 text-stone-300 hover:bg-stone-800 hover:text-white'
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-stone-300">Hero Tagline Badge</label>
+            <input
+              type="text"
+              required
+              value={formData.tagline || ''}
+              onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
+              className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-bold text-amber-300 uppercase tracking-widest"
+              placeholder="e.g. LUXURY WEDDING & CINEMATIC PHOTOGRAPHY"
+            />
           </div>
 
           <div className="space-y-1.5">

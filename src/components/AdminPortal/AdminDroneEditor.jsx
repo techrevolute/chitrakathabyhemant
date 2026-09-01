@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Video, Plus, Trash2, Check, ShieldCheck, Upload, FolderOpen, RefreshCw } from 'lucide-react';
+import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminDroneEditor({ portfolio = [], setPortfolio }) {
   const droneItems = portfolio.filter(p => p.category && p.category.toLowerCase().includes('drone'));
@@ -26,7 +27,7 @@ export default function AdminDroneEditor({ portfolio = [], setPortfolio }) {
 
     files.forEach((file, index) => {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const imageUrl = event.target.result;
         const item = {
           id: `drone-file-${Date.now()}-${index}`,
@@ -39,6 +40,16 @@ export default function AdminDroneEditor({ portfolio = [], setPortfolio }) {
           hidden: false
         };
         setPortfolio(prev => [item, ...prev]);
+        await apiSaveSiteImage({
+          id: item.id,
+          section: 'portfolio',
+          image_url: item.image,
+          title: item.title,
+          category: 'Drone Photography',
+          display_order: 1,
+          is_active: true,
+          data: item
+        });
       };
       reader.readAsDataURL(file);
     });
@@ -56,7 +67,7 @@ export default function AdminDroneEditor({ portfolio = [], setPortfolio }) {
     }
   };
 
-  const handleAddUrl = (e) => {
+  const handleAddUrl = async (e) => {
     e.preventDefault();
     if (!newDrone.title || !newDrone.image) return;
     const item = {
@@ -70,15 +81,39 @@ export default function AdminDroneEditor({ portfolio = [], setPortfolio }) {
       hidden: false
     };
     setPortfolio([item, ...portfolio]);
+    await apiSaveSiteImage({
+      id: item.id,
+      section: 'portfolio',
+      image_url: item.image,
+      title: item.title,
+      category: 'Drone Photography',
+      display_order: 1,
+      is_active: true,
+      data: item
+    });
     setNewDrone({ title: '', image: '', location: 'Raigad Fort Coast, MH' });
     triggerSaved();
   };
 
-  const handleReplaceImage = (id) => {
+  const handleReplaceImage = async (id) => {
     const current = portfolio.find(p => p.id === id);
     const newUrl = window.prompt("Enter replacement Drone Image URL:", current?.image);
     if (newUrl && newUrl.trim()) {
-      setPortfolio(portfolio.map(p => p.id === id ? { ...p, image: newUrl.trim() } : p));
+      const updated = portfolio.map(p => p.id === id ? { ...p, image: newUrl.trim() } : p);
+      setPortfolio(updated);
+      const updatedItem = updated.find(p => p.id === id);
+      if (updatedItem) {
+        await apiSaveSiteImage({
+          id: updatedItem.id,
+          section: 'portfolio',
+          image_url: updatedItem.image,
+          title: updatedItem.title,
+          category: 'Drone Photography',
+          display_order: 1,
+          is_active: true,
+          data: updatedItem
+        });
+      }
       triggerSaved();
     }
   };

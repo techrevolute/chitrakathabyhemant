@@ -1,63 +1,85 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Lock, Mail, Eye, EyeOff, Camera, KeyRound, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { BUSINESS_INFO } from '../../data/initialData';
 
 export default function AdminLogin({ onLoginSuccess, onCancel }) {
-  const [email, setEmail] = useState('Clicksbyhemant5564@gmail.com');
-  const [password, setPassword] = useState('chitrkathabyhemant');
+  const [email, setEmail] = useState('clicksbyhemant5564@gmail.com');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotStatus, setForgotStatus] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setLoading(true);
 
-    // Authentication check for Hemant Mandawade Admin Credentials
     const cleanEmail = email.trim().toLowerCase();
-    const targetEmail = 'clicksbyhemant5564@gmail.com';
-    const targetPass = 'chitrkathabyhemant';
 
-    if ((cleanEmail === targetEmail || cleanEmail === 'admin@chitrakathabyhemant.com') && password === targetPass) {
-      onLoginSuccess({
-        email,
-        name: BUSINESS_INFO.owner,
-        role: 'Administrator',
-        rememberMe
+    if (!isSupabaseConfigured || !supabase) {
+      setErrorMsg('Supabase production backend is not configured.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Authenticate directly against Supabase Auth (Single Source of Truth)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
       });
-    } else if (password !== targetPass) {
-      setErrorMsg('Invalid password. Default password is: chitrkathabyhemant');
-    } else {
-      onLoginSuccess({
-        email,
-        name: BUSINESS_INFO.owner,
-        role: 'Administrator',
-        rememberMe
-      });
+
+      if (error) {
+        console.error('Supabase Auth error:', error.message);
+        setErrorMsg(error.message || 'Invalid email or password. Please check your Supabase credentials.');
+        setLoading(false);
+        return;
+      }
+
+      if (data && data.user) {
+        onLoginSuccess({
+          email: data.user.email,
+          id: data.user.id,
+          role: data.user.role || 'Administrator',
+          name: data.user.user_metadata?.name || BUSINESS_INFO.owner,
+          session: data.session,
+          rememberMe
+        });
+      }
+    } catch (err) {
+      console.error('Login exception:', err);
+      setErrorMsg(err.message || 'Login failed. Please check your network connection.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDemoLogin = () => {
-    setEmail('Clicksbyhemant5564@gmail.com');
-    setPassword('chitrkathabyhemant');
-    onLoginSuccess({
-      email: 'Clicksbyhemant5564@gmail.com',
-      name: BUSINESS_INFO.owner,
-      role: 'Administrator',
-      rememberMe: true
-    });
-  };
-
-  const handleForgotSubmit = (e) => {
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
-    setForgotSuccess(true);
-    setTimeout(() => {
-      setForgotSuccess(false);
-      setForgotModalOpen(false);
-    }, 2000);
+    if (!forgotEmail.trim()) return;
+    setForgotStatus('Sending reset link...');
+
+    try {
+      if (supabase) {
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
+        if (error) {
+          setForgotStatus(`Error: ${error.message}`);
+        } else {
+          setForgotStatus('Password reset link sent to your email!');
+          setTimeout(() => {
+            setForgotModalOpen(false);
+            setForgotStatus('');
+          }, 3000);
+        }
+      }
+    } catch (err) {
+      setForgotStatus('Failed to send reset link.');
+    }
   };
 
   return (
@@ -129,7 +151,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 rounded-xl bg-stone-900 border border-stone-700 text-xs font-medium text-white focus:outline-none focus:border-[#8B0000]"
-                placeholder="chitrkathabyhemant"
+                placeholder="Enter Supabase Admin Password"
               />
               <button
                 type="button"
@@ -158,19 +180,20 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
           <div className="space-y-2 pt-2">
             <button
               type="submit"
-              className="w-full py-3.5 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full py-3.5 rounded-full bg-[#8B0000] hover:bg-[#A61C1C] text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Login to Dashboard</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              className="w-full py-3 rounded-full bg-white/10 hover:bg-white/20 text-amber-300 text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-white/10"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>1-Click Quick Admin Login</span>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Authenticating with Supabase...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Login to Dashboard</span>
+                </>
+              )}
             </button>
 
             <button
@@ -193,9 +216,9 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
             <h3 className="font-serif text-xl font-bold">Reset Password</h3>
             <p className="text-xs text-stone-400">Enter your registered admin email to receive reset instructions.</p>
             
-            {forgotSuccess ? (
+            {forgotStatus ? (
               <div className="p-3 bg-emerald-950 text-emerald-300 text-xs rounded-xl text-center">
-                Reset link sent to Clicksbyhemant5564@gmail.com!
+                {forgotStatus}
               </div>
             ) : (
               <form onSubmit={handleForgotSubmit} className="space-y-3">
@@ -204,7 +227,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                   required
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="Clicksbyhemant5564@gmail.com"
+                  placeholder="clicksbyhemant5564@gmail.com"
                   className="w-full p-3 rounded-xl bg-stone-900 border border-stone-700 text-xs text-white"
                 />
                 <div className="flex gap-2">
@@ -216,7 +239,7 @@ export default function AdminLogin({ onLoginSuccess, onCancel }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setForgotModalOpen(false)}
+                    onClick={() => { setForgotModalOpen(false); setForgotStatus(''); }}
                     className="flex-1 py-2.5 rounded-full bg-stone-800 text-stone-300 text-xs"
                   >
                     Cancel

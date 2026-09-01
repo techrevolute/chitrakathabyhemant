@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import AdminLogin from './AdminLogin';
 import AdminSidebar from './AdminSidebar';
 import AdminTopbar from './AdminTopbar';
@@ -39,11 +40,48 @@ export default function AdminPortal({
   driveFolders, setDriveFolders,
   onResetAll
 }) {
-  // Authentication State
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('chitrakatha_admin_user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  // Authentication State directly backed by Supabase Auth
+  const [user, setUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  useEffect(() => {
+    let isSubscribed = true;
+
+    async function checkAuthSession() {
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user && isSubscribed) {
+            setUser(session.user);
+          }
+        } catch (e) {
+          console.warn('Error checking Supabase session:', e);
+        }
+      }
+      if (isSubscribed) {
+        setAuthChecking(false);
+      }
+    }
+
+    checkAuthSession();
+
+    let authSubscription = null;
+    if (supabase) {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (isSubscribed) {
+          setUser(session?.user || null);
+        }
+      });
+      authSubscription = data.subscription;
+    }
+
+    return () => {
+      isSubscribed = false;
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
+    };
+  }, []);
 
   // Navigation Active Tab State
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -52,13 +90,30 @@ export default function AdminPortal({
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
-    localStorage.setItem('chitrakatha_admin_user', JSON.stringify(userData));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Sign out error:', err);
+      }
+    }
     setUser(null);
     localStorage.removeItem('chitrakatha_admin_user');
   };
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#141414] flex items-center justify-center text-white">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-[#8B0000] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-mono uppercase tracking-widest text-stone-400">Verifying Admin Session...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

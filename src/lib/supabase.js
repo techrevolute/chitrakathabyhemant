@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { setPersistentItem, getPersistentItem, removePersistentItem } from './storage';
 
-// Read Environment Variables with Netlify Production Fallback
-const PRODUCTION_SUPABASE_URL = 'https://vlnransfhfgkevnjoolk.supabase.co';
-const PRODUCTION_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsbnJhbnNmaGZna2V2bmpvb2xrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODIyNjMsImV4cCI6MjEwMzY1ODI2M30.8En8A8TmuqWD8cAX22yS2l-g1d1osxqb4aWWrCmvsRU';
+// Read Environment Variables (with production project fallbacks for build and multi-device sync)
+const DEFAULT_SUPABASE_URL = 'https://vlnransfhfgkevnjoolk.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsbnJhbnNmaGZna2V2bmpvb2xrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODIyNjMsImV4cCI6MjEwMzY1ODI2M30.8En8A8TmuqWD8cAX22yS2l-g1d1osxqb4aWWrCmvsRU';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || PRODUCTION_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || PRODUCTION_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -207,6 +207,81 @@ export function appendCacheBuster(url) {
   const timestamp = Date.now();
   const separator = formatted.includes('?') ? '&' : '?';
   return `${formatted}${separator}v=${timestamp}`;
+}
+
+/**
+ * Parse any Video URL (YouTube, Vimeo, Google Drive, Dropbox, Mixkit, Cloudinary, direct MP4/WebM)
+ */
+export function parseVideoUrl(url) {
+  if (!url || typeof url !== 'string') return { isVideo: false, type: 'none', src: '' };
+  const clean = url.trim();
+
+  // YouTube match
+  const ytMatch = clean.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (ytMatch && ytMatch[1]) {
+    return {
+      isVideo: true,
+      type: 'youtube',
+      id: ytMatch[1],
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`
+    };
+  }
+
+  // Vimeo match
+  const vimeoMatch = clean.match(/(?:vimeo\.com\/)(\d+)/i);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return {
+      isVideo: true,
+      type: 'vimeo',
+      id: vimeoMatch[1],
+      embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1&loop=1&background=1&autopause=0`
+    };
+  }
+
+  // Google Drive
+  if (clean.includes('drive.google.com') || clean.includes('docs.google.com')) {
+    const dMatch = clean.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/[?&]id=([a-zA-Z0-9_-]+)/) || clean.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (dMatch && dMatch[1]) {
+      const fileId = dMatch[1];
+      return {
+        isVideo: true,
+        type: 'direct',
+        src: `https://drive.google.com/uc?export=download&id=${fileId}`
+      };
+    }
+  }
+
+  // Dropbox
+  if (clean.includes('dropbox.com')) {
+    return {
+      isVideo: true,
+      type: 'direct',
+      src: clean.replace('dl=0', 'raw=1')
+    };
+  }
+
+  // Standard Video file formats, blob, data, or CDN video
+  if (
+    clean.startsWith('blob:') ||
+    clean.startsWith('data:video') ||
+    Boolean(clean.match(/\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i)) ||
+    clean.includes('video') ||
+    clean.includes('mixkit.co') ||
+    clean.includes('pexels.com') ||
+    clean.includes('cloudinary.com')
+  ) {
+    return {
+      isVideo: true,
+      type: 'direct',
+      src: clean
+    };
+  }
+
+  return {
+    isVideo: false,
+    type: 'image',
+    src: appendCacheBuster(clean)
+  };
 }
 
 export function formatImageUrl(url) {
@@ -443,32 +518,46 @@ export async function apiUploadStorageFile(bucketName, file) {
 }
 
 /**
- * Fetch All Dynamic Site Images
+ * Fetch All Dynamic Site Content & Images from Production Supabase
  */
 export async function apiFetchSiteImages(section = null) {
-  if (isSupabaseConfigured && supabase) {
+  if (!isSupabaseConfigured || !supabase) {
+    console.warn('Supabase not configured, returning empty list');
+    return [];
+  }
+
+  try {
     let query = supabase.from('site_images').select('*').eq('is_active', true).order('display_order', { ascending: true });
     if (section) {
       query = query.eq('section', section);
     }
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
-      return data;
+    if (error) {
+      console.error('apiFetchSiteImages database error:', error.message);
+      return [];
     }
+    return data || [];
+  } catch (err) {
+    console.error('apiFetchSiteImages exception:', err);
+    return [];
   }
-  const local = (await getPersistentItem('chitrakatha_site_images')) || [];
-  if (section) {
-    return local.filter(img => img.section === section && img.is_active !== false);
-  }
-  return local;
 }
 
 /**
- * Save / Update Dynamic Site Image & Content Payload
+ * Universal Save / Upsert to Supabase `site_images` table
+ * Strict Production Architecture: Throws error on failure, never fakes success.
  */
 export async function apiSaveSiteImage(imageData) {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase production database client is not configured.');
+  }
+
   const rawUrl = imageData.image_url || imageData.imageUrl || '';
-  const isVideo = Boolean(rawUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)) || rawUrl.startsWith('blob:') || rawUrl.startsWith('data:video');
+  if (rawUrl && (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:video'))) {
+    throw new Error('Temporary local blob or base64 video cannot be saved to the central database. Please wait for cloud upload to finish or provide a public video URL.');
+  }
+
+  const isVideo = Boolean(rawUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)) || rawUrl.startsWith('data:video');
   const formattedUrl = isVideo ? formatGoogleDriveUrl(rawUrl) : appendCacheBuster(rawUrl);
   const recordId = imageData.id || `${imageData.section || 'img'}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
@@ -479,51 +568,95 @@ export async function apiSaveSiteImage(imageData) {
     storage_path: imageData.storage_path || imageData.storagePath || null,
     title: imageData.title || '',
     category: imageData.category || '',
-    display_order: imageData.display_order || imageData.displayOrder || 0,
+    display_order: imageData.display_order !== undefined ? imageData.display_order : (imageData.displayOrder || 0),
     is_active: imageData.is_active !== undefined ? imageData.is_active : true,
-    data: imageData.data || imageData.metadata || null,
+    data: imageData.data || (imageData.metadata ? imageData.metadata : null),
     updated_at: new Date().toISOString()
   };
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('site_images')
-        .upsert([payload], { onConflict: 'id' })
-        .select();
+  const { data, error } = await supabase
+    .from('site_images')
+    .upsert([payload], { onConflict: 'id' })
+    .select();
 
-      if (!error && data && data.length > 0) {
-        return data[0];
-      } else if (error) {
-        console.warn('Supabase DB upsert error:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase DB upsert exception:', err);
-    }
+  if (error) {
+    console.error('Supabase DB upsert error:', error.message, error.details);
+    throw new Error(error.message || 'Failed to save record to production database.');
   }
 
-  // Persistent Storage Fallback (LocalStorage + IndexedDB)
-  const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
-  const record = { ...payload, created_at: new Date().toISOString() };
-  
-  const existingIdx = saved.findIndex(item => item.id === recordId);
-  if (existingIdx >= 0) {
-    saved[existingIdx] = record;
-  } else {
-    saved.push(record);
+  if (!data || data.length === 0) {
+    throw new Error('Database returned empty response after save.');
   }
 
-  await setPersistentItem('chitrakatha_site_images', saved);
-  return record;
+  return data[0];
 }
 
 /**
- * Save Active Hero Video to Supabase DB table (site_images) and Persistent Storage
+ * Save Active Hero Banner (Title, Subtitle, Video/Image URL, Tagline) directly to Central Production Database
+ * Strict Production Architecture: Throws error on failure.
  */
-export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', storagePath = null) {
+export async function apiSaveHeroData(heroData) {
+  if (!isSupabaseConfigured || !supabase) {
+    console.error('[apiSaveHeroData] Supabase production database client is not configured.');
+    throw new Error('Supabase production database client is not configured.');
+  }
+
+  if (heroData.url && (heroData.url.startsWith('blob:') || heroData.url.startsWith('data:video'))) {
+    console.error('[apiSaveHeroData] Temporary blob/base64 video URL rejected:', heroData.url);
+    throw new Error('Temporary local blob or base64 video cannot be saved to the central database. Please wait for cloud upload to finish or provide a public video URL.');
+  }
+
+  const formattedUrl = heroData.url ? appendCacheBuster(heroData.url) : '';
+  const heroTitle = heroData.title || 'Chitrakatha by Hemant';
+  
+  const payload = {
+    id: 'hero-main',
+    section: 'hero',
+    image_url: formattedUrl,
+    storage_path: null,
+    title: heroTitle,
+    category: 'Hero',
+    display_order: 1,
+    is_active: true,
+    data: {
+      title: heroTitle,
+      subtitle: heroData.subtitle || '',
+      tagline: heroData.tagline || 'LUXURY CINEMATIC PHOTOGRAPHY',
+      url: formattedUrl
+    },
+    updated_at: new Date().toISOString()
+  };
+
+  console.log('[apiSaveHeroData] Sending UPSERT to Supabase table site_images:', payload);
+
+  const { data, error } = await supabase
+    .from('site_images')
+    .upsert(payload, { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[apiSaveHeroData] Supabase UPSERT Error:', error.message, error);
+    throw new Error(error.message || 'Failed to save hero banner to production database.');
+  }
+
+  if (!data) {
+    console.error('[apiSaveHeroData] No database record returned from Supabase.');
+    throw new Error('No database response returned when saving hero banner.');
+  }
+
+  console.log('[apiSaveHeroData] Supabase UPSERT Success Response:', data);
+  return data;
+}
+
+/**
+ * Save Active Hero Video/Slide to Supabase DB
+ */
+export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', storagePath = null, extraData = null) {
   const formattedUrl = appendCacheBuster(videoUrl);
 
   const payload = {
+    id: 'hero-main',
     section: 'hero',
     image_url: formattedUrl,
     storage_path: storagePath,
@@ -531,63 +664,177 @@ export async function apiSaveHeroVideo(videoUrl, title = 'Homepage Hero Video', 
     category: 'Hero',
     display_order: 1,
     is_active: true,
+    data: extraData || {
+      title: title,
+      url: formattedUrl
+    },
     updated_at: new Date().toISOString()
   };
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      // 1. Deactivate all existing hero section records in DB table so only ONE active hero video exists
-      await supabase
-        .from('site_images')
-        .update({ is_active: false })
-        .eq('section', 'hero');
-
-      // 2. Insert new active hero video record into DB table
-      const { data, error } = await supabase
-        .from('site_images')
-        .insert([payload])
-        .select();
-
-      if (!error && data && data.length > 0) {
-        await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
-        return data[0];
-      }
-    } catch (e) {
-      console.warn('Supabase DB Hero Video save exception:', e);
-    }
-  }
-
-  // 3. Fallback: Save to Persistent Storage Engine (IndexedDB + LocalStorage)
-  const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
-  const updatedList = saved.map(item => item.section === 'hero' ? { ...item, is_active: false } : item);
-  
-  const record = {
-    id: `hero-video-${Date.now()}`,
-    ...payload,
-    created_at: new Date().toISOString()
-  };
-  
-  updatedList.unshift(record);
-  await setPersistentItem('chitrakatha_site_images', updatedList);
-  await setPersistentItem('chitrakatha_hero', { url: formattedUrl, title: title });
-
-  return record;
+  return await apiSaveSiteImage(payload);
 }
 
 /**
- * Delete Dynamic Site Image
+ * Save About Me Founder Data (Owner Name, Experience, Story, Mission, Vision, Profile Image)
  */
-export async function apiDeleteSiteImage(id, storagePath = null) {
-  if (isSupabaseConfigured && supabase) {
-    if (storagePath) {
-      await supabase.storage.from('website-images').remove([storagePath]);
-    }
-    await supabase.from('site_images').delete().eq('id', id);
+export async function apiSaveAboutData(aboutData) {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase production database client is not configured.');
   }
 
-  const saved = (await getPersistentItem('chitrakatha_site_images')) || [];
-  const filtered = saved.filter(item => item.id !== id);
-  await setPersistentItem('chitrakatha_site_images', filtered);
+  const formattedUrl = aboutData.profileImage ? (aboutData.profileImage.startsWith('blob:') || aboutData.profileImage.startsWith('data:') ? aboutData.profileImage : appendCacheBuster(aboutData.profileImage)) : '';
+  
+  const payload = {
+    id: 'about-main',
+    section: 'about',
+    image_url: formattedUrl,
+    storage_path: null,
+    title: aboutData.ownerName || 'Hemant Mandawade',
+    category: 'About Me',
+    display_order: 1,
+    is_active: true,
+    data: {
+      ownerName: aboutData.ownerName || 'Hemant Mandawade',
+      experience: aboutData.experience || '12+ Years',
+      story: aboutData.story || '',
+      mission: aboutData.mission || '',
+      vision: aboutData.vision || '',
+      profileImage: formattedUrl
+    },
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('site_images')
+    .upsert([payload], { onConflict: 'id' })
+    .select();
+
+  if (error) {
+    console.error('Supabase save aboutData error:', error.message);
+    throw new Error(error.message || 'Failed to save about profile to production database.');
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('No database response returned when saving about profile.');
+  }
+
+  return data[0];
+}
+
+/**
+ * Save Global Business Info to Supabase
+ */
+export async function apiSaveBusinessInfo(infoData) {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase production database client is not configured.');
+  }
+
+  const payload = {
+    id: 'info-business-global',
+    section: 'business_info',
+    image_url: '',
+    title: infoData.name || 'Chitrakatha by Hemant',
+    category: 'Business Info',
+    display_order: 0,
+    is_active: true,
+    data: infoData,
+    updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('site_images')
+    .upsert([payload], { onConflict: 'id' })
+    .select();
+
+  if (error) {
+    console.error('Supabase save businessInfo error:', error.message);
+    throw new Error(error.message || 'Failed to save business settings to production database.');
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('No database response returned when saving business info.');
+  }
+
+  return data[0];
+}
+
+/**
+ * Save / Update Single Service Offering
+ */
+export async function apiSaveServiceItem(serviceData) {
+  const payload = {
+    id: serviceData.id || `svc-${Date.now()}`,
+    section: 'services',
+    image_url: serviceData.image || '',
+    title: serviceData.title || '',
+    category: 'Services',
+    display_order: serviceData.displayOrder || 0,
+    is_active: true,
+    data: serviceData,
+    updated_at: new Date().toISOString()
+  };
+  return await apiSaveSiteImage(payload);
+}
+
+/**
+ * Save / Update Single FAQ Item
+ */
+export async function apiSaveFaqItem(faqData) {
+  const payload = {
+    id: faqData.id || `faq-${Date.now()}`,
+    section: 'faq',
+    image_url: '',
+    title: faqData.question || '',
+    category: faqData.category || 'General',
+    display_order: faqData.displayOrder || 0,
+    is_active: !faqData.hidden,
+    data: faqData,
+    updated_at: new Date().toISOString()
+  };
+  return await apiSaveSiteImage(payload);
+}
+
+/**
+ * Save / Update Single Brochure Item
+ */
+export async function apiSaveBrochureItem(brochureData) {
+  const payload = {
+    id: brochureData.id || `pdf-${Date.now()}`,
+    section: 'brochure',
+    image_url: brochureData.fileUrl || '',
+    title: brochureData.name || '',
+    category: brochureData.category || 'Wedding Packages',
+    display_order: 0,
+    is_active: brochureData.active !== false,
+    data: brochureData,
+    updated_at: new Date().toISOString()
+  };
+  return await apiSaveSiteImage(payload);
+}
+
+/**
+ * Delete Dynamic Site Image or Entity by ID from Supabase
+ */
+export async function apiDeleteSiteImage(id, storagePath = null) {
+  if (!id) return true;
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase client is not configured.');
+  }
+
+  if (storagePath) {
+    try {
+      await supabase.storage.from('website-images').remove([storagePath]);
+    } catch (sErr) {
+      console.warn('Storage deletion error:', sErr);
+    }
+  }
+
+  const { error } = await supabase.from('site_images').delete().eq('id', id);
+  if (error) {
+    console.error('Supabase delete error:', error.message);
+    throw new Error(error.message || 'Failed to delete record from production database.');
+  }
+
   return true;
 }
 
