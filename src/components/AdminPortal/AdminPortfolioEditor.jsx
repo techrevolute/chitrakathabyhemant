@@ -213,7 +213,7 @@ export default function AdminPortfolioEditor({
   };
 
   // --- CATEGORY HANDLERS ---
-  const handleCreateCategory = (e) => {
+  const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!newCat.name.trim()) return;
     const cat = {
@@ -225,19 +225,45 @@ export default function AdminPortfolioEditor({
       hidden: false
     };
     setCategories([...categories, cat]);
+
+    // Save Category Record directly to Supabase Cloud Database
+    await apiSaveSiteImage({
+      id: cat.id,
+      section: 'category',
+      image_url: cat.coverImage,
+      title: cat.name,
+      category: cat.slug,
+      is_active: !cat.hidden,
+      data: cat
+    });
+
     setNewCat({ name: '', coverImage: '' });
     triggerNotice();
   };
 
-  const handleDeleteCategory = (id, catName) => {
+  const handleDeleteCategory = async (id, catName) => {
     if (window.confirm(`Delete category "${catName}"? Photos in this category will remain.`)) {
       setCategories(categories.filter(c => c.id !== id));
+      await apiDeleteSiteImage(id);
       triggerNotice();
     }
   };
 
-  const handleToggleHideCategory = (id) => {
-    setCategories(categories.map(c => c.id === id ? { ...c, hidden: !c.hidden } : c));
+  const handleToggleHideCategory = async (id) => {
+    const updated = categories.map(c => c.id === id ? { ...c, hidden: !c.hidden } : c);
+    setCategories(updated);
+    const targetCat = updated.find(c => c.id === id);
+    if (targetCat) {
+      await apiSaveSiteImage({
+        id: targetCat.id,
+        section: 'category',
+        image_url: targetCat.coverImage,
+        title: targetCat.name,
+        category: targetCat.slug,
+        is_active: !targetCat.hidden,
+        data: targetCat
+      });
+    }
     triggerNotice();
   };
 

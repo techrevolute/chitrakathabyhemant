@@ -242,20 +242,18 @@ export default function App() {
             setServices(remoteServices);
           }
 
-          // Remote Categories Sync
+          // Remote Categories Sync (Supabase is single source of truth)
           const remoteCategories = remoteImgs
             .filter(img => img.section === 'category' && img.is_active !== false)
-            .map(img => ({
+            .map(img => img.data || ({
               id: img.id,
               name: img.title || img.category,
-              coverImage: img.image_url
+              slug: (img.title || img.category).toLowerCase().replace(/\s+/g, '-'),
+              coverImage: img.image_url,
+              hidden: false
             }));
           if (remoteCategories.length > 0) {
-            setCategories(prev => {
-              const names = remoteCategories.map(c => c.name);
-              const remaining = prev.filter(c => !names.includes(c.name));
-              return [...remoteCategories, ...remaining];
-            });
+            setCategories(remoteCategories);
           }
 
           // Remote Business Info & Global Settings Sync

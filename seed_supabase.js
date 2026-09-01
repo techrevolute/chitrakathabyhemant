@@ -28,6 +28,13 @@ const BUSINESS_INFO = {
   facebook: 'https://facebook.com/chitrakathabyhemant'
 };
 
+const INITIAL_CATEGORIES = [
+  { id: 'cat-wedding', name: 'Wedding Photography', slug: 'wedding-photography', coverImage: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&q=80&w=800', displayOrder: 1, hidden: false },
+  { id: 'cat-prewedding', name: 'Pre-Wedding', slug: 'pre-wedding', coverImage: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=800', displayOrder: 2, hidden: false },
+  { id: 'cat-drone', name: 'Drone Cinema', slug: 'drone-cinema', coverImage: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=800', displayOrder: 3, hidden: false },
+  { id: 'cat-fashion', name: 'Fashion & Portraits', slug: 'fashion-portraits', coverImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800', displayOrder: 4, hidden: false }
+];
+
 const INITIAL_PACKAGES = [
   {
     id: 'pkg-luxury-wedding',
@@ -109,7 +116,7 @@ const INITIAL_FAQS = [
 ];
 
 async function seed() {
-  console.log('Seeding initial datasets to Supabase Cloud Database...');
+  console.log('Seeding initial datasets & categories to Supabase Cloud Database...');
 
   const records = [
     {
@@ -130,6 +137,15 @@ async function seed() {
       is_active: true,
       data: BUSINESS_INFO
     },
+    ...INITIAL_CATEGORIES.map(cat => ({
+      id: cat.id,
+      section: 'category',
+      image_url: cat.coverImage,
+      title: cat.name,
+      category: cat.slug,
+      is_active: !cat.hidden,
+      data: cat
+    })),
     ...INITIAL_PACKAGES.map(pkg => ({
       id: pkg.id,
       section: 'package',
