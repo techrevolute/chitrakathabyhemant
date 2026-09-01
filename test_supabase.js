@@ -5,19 +5,19 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-async function testCycle() {
-  console.log('1. Admin saves "CROSS DEVICE FINAL 002"...');
+async function testFullFlow() {
+  console.log('--- TEST: ADMIN SAVES "CROSS DEVICE LIVE TEST 777" ---');
   const payload = {
     id: 'hero-main',
     section: 'hero',
     image_url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4',
-    title: 'CROSS DEVICE FINAL 002',
+    title: 'CROSS DEVICE LIVE TEST 777',
     category: 'Hero',
     display_order: 1,
     is_active: true,
     data: {
-      title: 'CROSS DEVICE FINAL 002',
-      subtitle: 'Testing verified production database synchronization across devices.',
+      title: 'CROSS DEVICE LIVE TEST 777',
+      subtitle: 'Verified database persistence across every device and page refresh.',
       tagline: 'LUXURY CINEMATIC PHOTOGRAPHY',
       url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'
     },
@@ -34,27 +34,26 @@ async function testCycle() {
     console.error('Save failed:', saveErr);
     return;
   }
-  console.log('Saved successfully. DB Record is_active =', saved.is_active, 'title =', saved.title);
+  console.log('Admin save succeeded! DB record title:', saved.title);
 
-  console.log('\n2. Device B queries Supabase (apiFetchSiteImages simulation)...');
-  const { data: remoteImgs, error: fetchErr } = await supabase
+  console.log('\n--- SIMULATING DEVICE B OR PAGE REFRESH ---');
+  const publicClient = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: publicImgs, error: fetchErr } = await publicClient
     .from('site_images')
     .select('*')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true });
+    .eq('is_active', true);
 
-  const heroRecord = remoteImgs.find(i => i.id === 'hero-main');
-  console.log('Device B fetched heroRecord:');
-  console.log({
-    id: heroRecord.id,
-    title: heroRecord.title,
-    is_active: heroRecord.is_active,
-    data_title: heroRecord.data?.title
-  });
+  if (fetchErr) {
+    console.error('Public fetch error:', fetchErr);
+    return;
+  }
 
-  const heroPayload = heroRecord.data || {};
-  const heroTitle = heroPayload.title || heroRecord.title;
-  console.log('\n3. Device B DOM will render Title:', heroTitle);
+  const heroRecord = publicImgs.find(i => i.id === 'hero-main');
+  console.log('Device B fetched heroRecord successfully!');
+  console.log('  Title in DB:', heroRecord.title);
+  console.log('  Data Title:', heroRecord.data?.title);
+  console.log('  Data Subtitle:', heroRecord.data?.subtitle);
+  console.log('  is_active:', heroRecord.is_active);
 }
 
-testCycle();
+testFullFlow();
