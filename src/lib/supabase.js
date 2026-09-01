@@ -466,61 +466,46 @@ export async function apiFetchBookings() {
 }
 
 /**
- * Upload File to Supabase Storage Bucket or return compressed persistent Data URL
+ * Upload File to Supabase Storage Bucket and return permanent public HTTPS URL
  */
-export async function apiUploadStorageFile(bucketName, file) {
+export async function apiUploadStorageFile(bucketName = 'website-images', file) {
   if (!file) return null;
 
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase storage is not configured.');
+  }
+
   const isVideo = file.type ? file.type.startsWith('video/') : false;
+  const fileExt = file.name ? file.name.split('.').pop() : (isVideo ? 'mp4' : 'png');
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+  const filePath = `${fileName}`;
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const fileExt = file.name ? file.name.split('.').pop() : (isVideo ? 'mp4' : 'png');
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-      const filePath = `${fileName}`;
+  console.log(`[Storage Upload] Uploading ${file.name || 'file'} to bucket "${bucketName}"...`);
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName || 'website-images')
-        .upload(filePath, file);
+  const { error: uploadError } = await supabase.storage
+    .from(bucketName)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
 
-      if (!uploadError) {
-        const { data } = supabase.storage
-          .from(bucketName || 'website-images')
-          .getPublicUrl(filePath);
-
-        if (data && data.publicUrl) {
-          return {
-            publicUrl: appendCacheBuster(data.publicUrl),
-            storagePath: filePath
-          };
-        }
-      } else {
-        console.warn('Supabase storage upload error:', uploadError);
-      }
-    } catch (e) {
-      console.warn('Supabase storage upload exception:', e);
-    }
+  if (uploadError) {
+    console.error('[Storage Upload Error]:', uploadError.message);
+    throw new Error(`Storage Upload Error: ${uploadError.message || 'Bucket not found or permission denied'}`);
   }
 
-  // Instant 0-Memory Blob URL fallback for video files (Zero RAM usage, no Out of Memory crash)
-  if (isVideo) {
-    return {
-      publicUrl: URL.createObjectURL(file),
-      storagePath: null
-    };
+  const { data } = supabase.storage
+    .from(bucketName)
+    .getPublicUrl(filePath);
+
+  if (!data || !data.publicUrl) {
+    throw new Error('Failed to retrieve permanent public HTTPS URL from Supabase Storage.');
   }
 
-  // Persistent compressed Data URL fallback for images
-  let compressedDataUrl = '';
-  try {
-    compressedDataUrl = await compressImageFile(file);
-  } catch (err) {
-    console.warn('Image compression error:', err);
-  }
-
+  console.log('[Storage Upload Success] Permanent HTTPS URL:', data.publicUrl);
   return {
-    publicUrl: compressedDataUrl,
-    storagePath: null
+    publicUrl: data.publicUrl,
+    storagePath: filePath
   };
 }
 
