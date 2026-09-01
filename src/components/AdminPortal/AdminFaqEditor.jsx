@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   HelpCircle, Plus, Trash2, Edit3, Check, Eye, EyeOff, ArrowUp, ArrowDown, HelpCircle as FaqIcon
 } from 'lucide-react';
-import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
+import { apiSaveFaqItem, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminFaqEditor({ faqs = [], setFaqs }) {
   const categories = ['Booking', 'Shoot Day', 'Deliverables', 'Pricing & Payments', 'General'];
@@ -36,16 +36,7 @@ export default function AdminFaqEditor({ faqs = [], setFaqs }) {
     };
 
     setFaqs([item, ...faqs]);
-
-    await apiSaveSiteImage({
-      id: item.id,
-      section: 'faq',
-      title: item.question,
-      category: item.category,
-      is_active: !item.hidden,
-      data: item
-    });
-
+    await apiSaveFaqItem(item);
     setNewFaq({ category: 'Booking', question: '', answer: '' });
     triggerNotice();
   };
@@ -53,16 +44,7 @@ export default function AdminFaqEditor({ faqs = [], setFaqs }) {
   const handleUpdateFaq = async (e) => {
     e.preventDefault();
     setFaqs(faqs.map(f => f.id === editingFaq.id ? editingFaq : f));
-
-    await apiSaveSiteImage({
-      id: editingFaq.id,
-      section: 'faq',
-      title: editingFaq.question,
-      category: editingFaq.category,
-      is_active: !editingFaq.hidden,
-      data: editingFaq
-    });
-
+    await apiSaveFaqItem(editingFaq);
     setEditingFaq(null);
     triggerNotice();
   };
@@ -75,9 +57,14 @@ export default function AdminFaqEditor({ faqs = [], setFaqs }) {
     }
   };
 
-  const handleToggleHideFaq = (id) => {
-    setFaqs(faqs.map(f => f.id === id ? { ...f, hidden: !f.hidden } : f));
-    triggerNotice();
+  const handleToggleHideFaq = async (id) => {
+    const target = faqs.find(f => f.id === id);
+    if (target) {
+      const updated = { ...target, hidden: !target.hidden };
+      setFaqs(faqs.map(f => f.id === id ? updated : f));
+      await apiSaveFaqItem(updated);
+      triggerNotice();
+    }
   };
 
   const handleReorderFaq = (id, direction) => {

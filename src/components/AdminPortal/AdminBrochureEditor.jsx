@@ -1,20 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  FileText, Upload, Trash2, Eye, Download, Check, AlertCircle, RefreshCw, Star, Plus, ShieldCheck
+  FileText, Upload, Trash2, Eye, Download, Check, AlertCircle, RefreshCw, Star, Plus, ShieldCheck, Loader2
 } from 'lucide-react';
+import { apiSaveBrochureItem, apiDeleteSiteImage, apiUploadStorageFile } from '../../lib/supabase';
 
 export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
-  const [selectedCategory, setSelectedCategory] = useState('Wedding Packages');
-  const [savedNotice, setSavedNotice] = useState(false);
-  const [previewPdf, setPreviewPdf] = useState(null);
-
   const categories = [
     'Wedding Packages',
-    'Pre-Wedding Packages',
-    'Fashion Shoot Packages',
-    'Drone Packages',
-    'Corporate Packages'
+    'Pre-Wedding Collection',
+    'Fashion & Commercial Rate Card',
+    'Drone & Aerial Cinematography',
+    'Custom Luxury Deliverables'
   ];
+
+  const [selectedCategory, setSelectedCategory] = useState(categories[0]);
+  const [savedNotice, setSavedNotice] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const pdfInputRef = useRef(null);
 
   const [newPdf, setNewPdf] = useState({
     name: '',
@@ -28,7 +30,30 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
-  const handleAddBrochure = (e) => {
+  const handlePdfFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const uploadRes = await apiUploadStorageFile('website-images', file);
+      if (uploadRes?.publicUrl) {
+        setNewPdf(prev => ({
+          ...prev,
+          fileUrl: uploadRes.publicUrl,
+          name: prev.name || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ")
+        }));
+      }
+    } catch (err) {
+      console.error('PDF upload error:', err);
+      alert(`PDF upload failed: ${err.message || 'Check storage'}`);
+    } finally {
+      setUploading(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
+
+  const handleAddBrochure = async (e) => {
     e.preventDefault();
     if (!newPdf.name || !newPdf.fileUrl) return;
 
@@ -49,32 +74,44 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
     };
 
     setBrochures([item, ...updatedBrochures]);
+    await apiSaveBrochureItem(item);
     setNewPdf({ name: '', category: selectedCategory, description: '', fileUrl: '' });
     triggerNotice();
   };
 
-  const handleSetActive = (id, category) => {
-    setBrochures(brochures.map(b => {
+  const handleSetActive = async (id, category) => {
+    const updatedList = brochures.map(b => {
       if (b.category === category) {
         return { ...b, active: b.id === id };
       }
       return b;
-    }));
+    });
+    setBrochures(updatedList);
+    const target = updatedList.find(b => b.id === id);
+    if (target) {
+      await apiSaveBrochureItem(target);
+    }
     triggerNotice();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Permanently delete this brochure PDF?")) {
       setBrochures(brochures.filter(b => b.id !== id));
+      await apiDeleteSiteImage(id);
       triggerNotice();
     }
   };
 
-  const handleReplaceUrl = (id) => {
+  const handleReplaceUrl = async (id) => {
     const current = brochures.find(b => b.id === id);
     const newUrl = window.prompt("Enter replacement PDF URL:", current?.fileUrl);
     if (newUrl && newUrl.trim()) {
-      setBrochures(brochures.map(b => b.id === id ? { ...b, fileUrl: newUrl.trim() } : b));
+      const updated = brochures.map(b => b.id === id ? { ...b, fileUrl: newUrl.trim() } : b);
+      setBrochures(updated);
+      const target = updated.find(b => b.id === id);
+      if (target) {
+        await apiSaveBrochureItem(target);
+      }
       triggerNotice();
     }
   };
@@ -150,7 +187,25 @@ export default function AdminBrochureEditor({ brochures = [], setBrochures }) {
           </div>
 
           <div className="space-y-1 sm:col-span-2">
-            <label className="text-[11px] font-bold text-stone-300 uppercase">PDF Document File URL *</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-stone-300 uppercase">PDF Document File URL *</label>
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={uploading}
+                className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold"
+              >
+                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {uploading ? 'Uploading PDF...' : 'Choose PDF from PC'}
+              </button>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={handlePdfFileUpload}
+              />
+            </div>
             <input
               type="url"
               required

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Save, Check, User, Image as ImageIcon, Upload, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
-import { apiUploadStorageFile, apiSaveSiteImage, apiDeleteSiteImage, appendCacheBuster, formatGoogleDriveUrl, handleImageError } from '../../lib/supabase';
+import { apiUploadStorageFile, apiSaveSiteImage, apiSaveAboutData, apiDeleteSiteImage, appendCacheBuster, formatGoogleDriveUrl, handleImageError } from '../../lib/supabase';
 
 export default function AdminAboutEditor({ aboutData, setAboutData, siteImages = [], setSiteImages }) {
   const [formData, setFormData] = useState({
@@ -42,28 +42,19 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
       const result = await apiUploadStorageFile('website-images', file);
       if (result && result.publicUrl) {
         const updatedUrl = appendCacheBuster(result.publicUrl);
-        setFormData(prev => ({ ...prev, profileImage: updatedUrl }));
+        const updatedState = { ...formData, profileImage: updatedUrl };
+        setFormData(updatedState);
         
-        // Instantly update parent state so live About section updates immediately!
         if (setAboutData) {
-          setAboutData(prev => ({ ...prev, profileImage: updatedUrl }));
+          setAboutData(updatedState);
         }
 
-        // Save to site_images table / state
-        const savedImg = await apiSaveSiteImage({
-          section: 'about',
-          image_url: updatedUrl,
-          storage_path: result.storagePath,
-          title: 'Hemant Mandawade Profile Photo',
-          category: 'About Me',
-          display_order: 1,
-          is_active: true
-        });
+        const savedRecord = await apiSaveAboutData(updatedState);
 
-        if (setSiteImages) {
+        if (setSiteImages && savedRecord) {
           setSiteImages(prev => {
-            const filtered = prev.filter(img => img.section !== 'about');
-            return [savedImg, ...filtered];
+            const filtered = prev.filter(img => img.id !== 'about-main' && img.section !== 'about');
+            return [savedRecord, ...filtered];
           });
         }
 
@@ -71,7 +62,7 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
       }
     } catch (err) {
       console.error('File upload error:', err);
-      showToast('Error uploading image file');
+      showToast(`Upload failed: ${err.message || 'Check storage'}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -79,25 +70,26 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
   };
 
   // Handle replace photo URL
-  const handleReplacePhotoUrl = () => {
+  const handleReplacePhotoUrl = async () => {
     const newUrl = window.prompt('Enter new Profile Image URL (or Google Drive share link):', formData.profileImage);
     if (newUrl && newUrl.trim()) {
       const formatted = formatGoogleDriveUrl(newUrl.trim());
       const busterUrl = appendCacheBuster(formatted);
-      setFormData(prev => ({ ...prev, profileImage: busterUrl }));
+      const updatedState = { ...formData, profileImage: busterUrl };
+      setFormData(updatedState);
       
       if (setAboutData) {
-        setAboutData(prev => ({ ...prev, profileImage: busterUrl }));
+        setAboutData(updatedState);
       }
 
-      apiSaveSiteImage({
-        section: 'about',
-        image_url: busterUrl,
-        title: 'Hemant Mandawade Profile Photo',
-        category: 'About Me',
-        display_order: 1,
-        is_active: true
-      });
+      const savedRecord = await apiSaveAboutData(updatedState);
+
+      if (setSiteImages && savedRecord) {
+        setSiteImages(prev => {
+          const filtered = prev.filter(img => img.id !== 'about-main' && img.section !== 'about');
+          return [savedRecord, ...filtered];
+        });
+      }
 
       showToast('Image updated successfully');
     }
@@ -130,31 +122,28 @@ export default function AdminAboutEditor({ aboutData, setAboutData, siteImages =
     e.preventDefault();
     const updatedData = { ...formData };
     
-    // Save to App State
-    if (setAboutData) {
-      setAboutData(updatedData);
+    setUploading(true);
+    try {
+      const savedRecord = await apiSaveAboutData(updatedData);
+
+      if (setAboutData) {
+        setAboutData(updatedData);
+      }
+
+      if (setSiteImages && savedRecord) {
+        setSiteImages(prev => {
+          const filtered = prev.filter(img => img.id !== 'about-main');
+          return [savedRecord, ...filtered];
+        });
+      }
+
+      showToast('About Me profile & content saved successfully! Synced across all devices.');
+    } catch (err) {
+      console.error('Error saving about profile:', err);
+      showToast('Error saving about profile');
+    } finally {
+      setUploading(false);
     }
-
-    // Save image & text data to site_images in Supabase Cloud
-    const savedImg = await apiSaveSiteImage({
-      id: 'about-me-main',
-      section: 'about',
-      image_url: updatedData.profileImage,
-      title: updatedData.ownerName || 'Hemant Mandawade Profile Photo',
-      category: 'About Me',
-      display_order: 1,
-      is_active: true,
-      data: updatedData
-    });
-
-    if (setSiteImages) {
-      setSiteImages(prev => {
-        const filtered = prev.filter(img => img.section !== 'about');
-        return [savedImg, ...filtered];
-      });
-    }
-
-    showToast('About Me profile & content saved successfully');
   };
 
   return (

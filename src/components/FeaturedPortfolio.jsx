@@ -109,19 +109,18 @@ export default function FeaturedPortfolio({ portfolio = [], videos = [], categor
     const target = norm(catName);
     const catPhotos = visiblePhotos.filter(item => {
       const c = norm(item.category);
-      if (!c) return false;
-      return c === target || c.includes(target) || target.includes(c);
+      return c.includes(target) || target.includes(c);
     });
 
     const catVideos = visibleVideos
       .filter(item => {
         const c = norm(item.category);
-        if (!c) return false;
-        return c === target || c.includes(target) || target.includes(c);
+        return c.includes(target) || target.includes(c);
       })
       .map(v => ({ ...v, image: v.videoUrl }));
 
-    return [...catPhotos, ...catVideos];
+    const combined = [...catPhotos, ...catVideos];
+    return combined.length > 0 ? combined : visiblePhotos;
   };
 
   // Helper to open Category Gallery Modal for a specific category
@@ -136,8 +135,7 @@ export default function FeaturedPortfolio({ portfolio = [], videos = [], categor
     : visiblePhotos.filter(item => {
         const c = norm(item.category);
         const target = norm(activeFilter);
-        if (!c) return false;
-        return c === target || c.includes(target) || target.includes(c);
+        return c.includes(target) || target.includes(c);
       });
 
   const filteredVideos = activeFilter === 'All'
@@ -145,8 +143,7 @@ export default function FeaturedPortfolio({ portfolio = [], videos = [], categor
     : visibleVideos.filter(item => {
         const c = norm(item.category);
         const target = norm(activeFilter);
-        if (!c) return false;
-        return c === target || c.includes(target) || target.includes(c);
+        return c.includes(target) || target.includes(c);
       });
 
   // Watermark Positioning

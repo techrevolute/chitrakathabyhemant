@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Layers, Check, Eye, EyeOff } from 'lucide-react';
 import { INITIAL_SERVICES } from '../../data/initialData';
-import { apiSaveSiteImage, apiDeleteSiteImage } from '../../lib/supabase';
+import { apiSaveServiceItem, apiDeleteSiteImage } from '../../lib/supabase';
 
 export default function AdminServicesEditor({ services = INITIAL_SERVICES, setServices }) {
   const [newService, setNewService] = useState({
@@ -24,23 +24,12 @@ export default function AdminServicesEditor({ services = INITIAL_SERVICES, setSe
       id: `svc-${Date.now()}`,
       ...newService,
       icon: 'Camera',
-      details: 'Custom service package details.'
+      details: newService.description || 'Comprehensive custom service package details.'
     };
     if (setServices) {
       setServices([item, ...services]);
     }
-
-    // Save directly to Supabase Cloud Database
-    await apiSaveSiteImage({
-      id: item.id,
-      section: 'service',
-      image_url: item.image,
-      title: item.title,
-      category: 'Services Offered',
-      is_active: true,
-      data: item
-    });
-
+    await apiSaveServiceItem(item);
     setNewService({ title: '', description: '', image: '', priceStarting: 'Contact for Quote' });
     triggerSaved();
   };

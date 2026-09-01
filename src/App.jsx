@@ -42,162 +42,165 @@ import { apiFetchSiteImages, subscribeToRealtimeChanges } from './lib/supabase';
 import { usePersistentState, removePersistentItem, getVideoBlob } from './lib/storage';
 
 export default function App() {
-  // Bulletproof Persistent States (Syncs to memory, LocalStorage & IndexedDB)
+  // Client UI Preferences
   const [lang, setLang] = usePersistentState('chitrakatha_lang', 'en');
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
   const [activePage, setActivePage] = useState('home');
 
-  const [aboutData, setAboutData] = usePersistentState('chitrakatha_about_data', INITIAL_ABOUT_DATA);
-  const [logoUrl, setLogoUrl] = usePersistentState('chitrakatha_logo_url', INITIAL_LOGO_URL);
-  const [siteImages, setSiteImages] = usePersistentState('chitrakatha_site_images', INITIAL_SITE_IMAGES);
-  const [categories, setCategories] = usePersistentState('chitrakatha_categories', INITIAL_CATEGORIES);
-  const [portfolio, setPortfolio] = usePersistentState('chitrakatha_portfolio', INITIAL_PORTFOLIO);
-  const [videos, setVideos] = usePersistentState('chitrakatha_videos', INITIAL_VIDEOS);
-  const [services, setServices] = usePersistentState('chitrakatha_services', INITIAL_SERVICES);
-  const [businessInfo, setBusinessInfo] = usePersistentState('chitrakatha_business_info', BUSINESS_INFO);
-  const [brochures, setBrochures] = usePersistentState('chitrakatha_brochures', INITIAL_BROCHURES);
-  const [stats, setStats] = usePersistentState('chitrakatha_stats', INITIAL_STATS);
+  // Single Source of Truth CMS States (Hydrated directly from production Supabase database)
+  const [aboutData, setAboutData] = useState(INITIAL_ABOUT_DATA);
+  const [logoUrl, setLogoUrl] = useState(INITIAL_LOGO_URL);
+  const [siteImages, setSiteImages] = useState(INITIAL_SITE_IMAGES);
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [portfolio, setPortfolio] = useState(INITIAL_PORTFOLIO);
+  const [videos, setVideos] = useState(INITIAL_VIDEOS);
+  const [services, setServices] = useState(INITIAL_SERVICES);
+  const [businessInfo, setBusinessInfo] = useState(BUSINESS_INFO);
+  const [brochures, setBrochures] = useState(INITIAL_BROCHURES);
+  const [stats, setStats] = useState(INITIAL_STATS);
   const [watermark, setWatermark] = usePersistentState('chitrakatha_watermark', INITIAL_WATERMARK);
-  const [heroData, setHeroData] = usePersistentState('chitrakatha_hero', INITIAL_HERO_VIDEO);
-  const [packages, setPackages] = usePersistentState('chitrakatha_packages', INITIAL_PACKAGES);
-  const [faqs, setFaqs] = usePersistentState('chitrakatha_faqs', INITIAL_FAQS);
+  const [heroData, setHeroData] = useState(INITIAL_HERO_VIDEO);
+  const [packages, setPackages] = useState(INITIAL_PACKAGES);
+  const [faqs, setFaqs] = useState(INITIAL_FAQS);
   const [bookings, setBookings] = usePersistentState('chitrakatha_bookings', INITIAL_BOOKINGS);
   const [driveFolders, setDriveFolders] = usePersistentState('chitrakatha_drive_folders', []);
 
-  // Sanitize heroData if a giant base64 video string or polluted query parameter was previously saved
+  // Sync with remote central Supabase database and subscribe to Realtime live changes
   useEffect(() => {
-    if (heroData && heroData.url) {
-      if (heroData.url.startsWith('data:video')) {
-        console.warn('Sanitizing giant base64 video string from heroData');
-        setHeroData(prev => ({
-          ...prev,
-          url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'
-        }));
-      } else if (heroData.url.includes('.mp4?v=')) {
-        const cleanMp4 = heroData.url.split('?v=')[0];
-        setHeroData(prev => ({
-          ...prev,
-          url: cleanMp4
-        }));
-      }
-    }
-  }, [heroData?.url]);
+    console.log('CROSS_DEVICE_FIX_BUILD_V2');
 
-  // Load local computer video file Blob from IndexedDB on page load/refresh
-  useEffect(() => {
-    async function restoreLocalVideoBlob() {
-      try {
-        const storedBlob = await getVideoBlob('chitrakatha_hero_video_blob');
-        if (storedBlob && (storedBlob instanceof Blob || storedBlob instanceof File)) {
-          const freshBlobUrl = URL.createObjectURL(storedBlob);
-          setHeroData(prev => ({
-            ...prev,
-            url: freshBlobUrl
-          }));
-        }
-      } catch (err) {
-        console.warn('Error loading video blob from IndexedDB:', err);
-      }
-    }
-    restoreLocalVideoBlob();
-  }, []);
-
-  // Restore local Engagement/Film video Blobs from IndexedDB on page load/refresh
-  useEffect(() => {
-    async function restoreVideoGalleryBlobs() {
-      if (!Array.isArray(videos) || videos.length === 0) return;
-      let updated = false;
-      const newVideos = await Promise.all(videos.map(async (vid) => {
-        if (vid.id && vid.id.startsWith('vid-file-')) {
-          try {
-            const blob = await getVideoBlob(`video_file_${vid.id}`);
-            if (blob && (blob instanceof Blob || blob instanceof File)) {
-              updated = true;
-              return { ...vid, videoUrl: URL.createObjectURL(blob) };
-            }
-          } catch (e) {
-            console.warn('Error restoring video gallery blob:', e);
-          }
-        }
-        return vid;
-      }));
-
-      if (updated) {
-        setVideos(newVideos);
-      }
-    }
-    restoreVideoGalleryBlobs();
-  }, []);
-
-  // Sync with remote Supabase database and subscribe to Realtime live changes
-  useEffect(() => {
     async function loadRemoteImages() {
       try {
+        console.log('[PRODUCTION HERO FETCH] Starting apiFetchSiteImages()...');
         const remoteImgs = await apiFetchSiteImages();
+        console.log('[PRODUCTION HERO READ]', remoteImgs);
+
         if (remoteImgs && remoteImgs.length > 0) {
           setSiteImages(remoteImgs);
 
-          // Find active hero record (sorted by updated_at / latest)
-          const activeHero = remoteImgs
-            .filter(img => img.section === 'hero' && img.is_active !== false)
-            .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0];
+          // 1. Sync Active Hero Section (Explicitly locate hero-main)
+          const heroRecord = remoteImgs.find(img => img.id === 'hero-main') ||
+            remoteImgs
+              .filter(img => img.section === 'hero' && img.is_active !== false)
+              .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0];
 
-          // Only overwrite heroData if activeHero is a valid permanent HTTP/HTTPS URL (not expired blob: string)
-          if (activeHero && activeHero.image_url && !activeHero.image_url.startsWith('blob:')) {
-            setHeroData(prev => ({
+          console.log('[PRODUCTION HERO RECORD]', heroRecord);
+
+          if (heroRecord) {
+            const heroPayload = heroRecord.data || {};
+            const heroTitle = heroPayload.title || heroRecord.title;
+            const heroSubtitle = heroPayload.subtitle !== undefined ? heroPayload.subtitle : heroRecord.subtitle;
+            const heroUrl = heroPayload.url || heroRecord.image_url;
+            const heroTagline = heroPayload.tagline;
+
+            const nextHeroState = {
+              title: heroTitle || 'Chitrakatha by Hemant',
+              subtitle: heroSubtitle !== undefined ? heroSubtitle : '',
+              tagline: heroTagline || 'LUXURY CINEMATIC PHOTOGRAPHY',
+              url: (heroUrl && !heroUrl.startsWith('blob:')) ? heroUrl : 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4',
+              ...heroPayload
+            };
+
+            console.log('[PRODUCTION HERO STATE SETTING]', nextHeroState);
+            setHeroData(nextHeroState);
+          } else {
+            console.error('SUPABASE HERO RECORD NOT FOUND');
+          }
+
+          // 2. Sync About Me Section
+          const aboutImg = remoteImgs.find(img => img.id === 'about-main') ||
+            remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
+          if (aboutImg) {
+            const aboutPayload = aboutImg.data || {};
+            setAboutData(prev => ({
               ...prev,
-              url: activeHero.image_url,
-              title: activeHero.title || prev?.title
+              ...aboutPayload,
+              ownerName: aboutImg.title || aboutPayload.ownerName || prev.ownerName,
+              profileImage: aboutImg.image_url || aboutPayload.profileImage || prev.profileImage
             }));
           }
 
-          // Remote Portfolio Photos Sync
+          // 3. Sync Global Business Settings
+          const infoImg = remoteImgs.find(img => img.section === 'business_info' && img.is_active !== false);
+          if (infoImg && infoImg.data) {
+            setBusinessInfo(infoImg.data);
+          }
+
+          // 4. Sync Experience Stats
+          const statsImg = remoteImgs.find(img => img.section === 'stats' && img.is_active !== false);
+          if (statsImg && statsImg.data && Array.isArray(statsImg.data)) {
+            setStats(statsImg.data);
+          }
+
+          // 5. Sync Services
+          const remoteServices = remoteImgs
+            .filter(img => img.section === 'services' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              title: img.title || 'Photography Service',
+              description: 'Professional photography and film service.',
+              image: img.image_url,
+              priceStarting: 'Contact for Quote',
+              icon: 'Camera'
+            }));
+          if (remoteServices.length > 0) {
+            setServices(remoteServices);
+          }
+
+          // 6. Sync Categories
+          const remoteCategories = remoteImgs
+            .filter(img => img.section === 'category' && img.is_active !== false)
+            .map(img => img.data || ({
+              id: img.id,
+              name: img.title,
+              slug: img.title.toLowerCase().replace(/\s+/g, '-'),
+              coverImage: img.image_url,
+              displayOrder: img.display_order || 1,
+              hidden: false
+            }));
+          if (remoteCategories.length > 0) {
+            setCategories(remoteCategories);
+          }
+
+          // 7. Sync Portfolio Photos
           const remotePortfolio = remoteImgs
             .filter(img => img.section === 'portfolio' && img.is_active !== false)
-            .map(img => ({
+            .map(img => img.data || ({
               id: img.id,
-              title: img.title || 'Portfolio Shoot',
+              categoryId: img.category ? `cat-${img.category.toLowerCase().replace(/\s+/g, '-')}` : 'cat-wedding',
               category: img.category || 'Wedding',
+              title: img.title || 'Portfolio Shoot',
+              description: 'Captured by Hemant Mandawade.',
               image: img.image_url,
               location: img.location || 'Maharashtra',
+              featured: true,
+              hidden: false,
               displayOrder: img.display_order || 1
             }));
           if (remotePortfolio.length > 0) {
-            setPortfolio(prev => {
-              const localOnly = prev.filter(p => p.id && String(p.id).startsWith('img-local-'));
-              return [...remotePortfolio, ...localOnly];
-            });
+            setPortfolio(remotePortfolio);
           }
 
-          // Remote Cinematic Videos Sync
+          // 8. Sync Cinematic Videos
           const remoteVideos = remoteImgs
             .filter(img => img.section === 'video' && img.is_active !== false)
-            .map(img => ({
+            .map(img => img.data || ({
               id: img.id,
               title: img.title || 'Cinematic Film',
               category: img.category || 'Wedding Film',
               videoUrl: img.image_url,
               thumbnail: img.thumbnail || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-              location: img.location || 'Maharashtra'
+              location: img.location || 'Maharashtra',
+              duration: '04:15',
+              featured: true,
+              hidden: false
             }));
           if (remoteVideos.length > 0) {
-            setVideos(prev => {
-              const localOnly = prev.filter(v => v.id && String(v.id).startsWith('vid-file-'));
-              return [...remoteVideos, ...localOnly];
-            });
+            setVideos(remoteVideos);
           }
 
-          const aboutImg = remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
-          if (aboutImg) {
-            setAboutData(prev => ({
-              ...prev,
-              ...(aboutImg.data || {}),
-              profileImage: aboutImg.image_url || prev.profileImage
-            }));
-          }
-
-          // Remote Packages Sync
+          // 9. Sync Packages
           const remotePackages = remoteImgs
             .filter(img => img.section === 'package' && img.is_active !== false)
             .map(img => img.data || ({
@@ -213,23 +216,22 @@ export default function App() {
             setPackages(remotePackages);
           }
 
-          // Remote FAQs Sync
+          // 10. Sync FAQs
           const remoteFaqs = remoteImgs
             .filter(img => img.section === 'faq' && img.is_active !== false)
             .map(img => img.data || ({
               id: img.id,
+              question: img.title,
               category: img.category || 'General',
-              question: img.title || 'FAQ Question',
-              answer: 'FAQ Answer',
-              hidden: false
+              answer: ''
             }));
           if (remoteFaqs.length > 0) {
             setFaqs(remoteFaqs);
           }
 
-          // Remote Services Sync
-          const remoteServices = remoteImgs
-            .filter(img => img.section === 'service' && img.is_active !== false)
+          // 11. Sync Brochures
+          const remoteBrochures = remoteImgs
+            .filter(img => img.section === 'brochure' && img.is_active !== false)
             .map(img => img.data || ({
               id: img.id,
               title: img.title || 'Service Offering',
@@ -263,8 +265,11 @@ export default function App() {
               ...prev,
               ...businessImg.data
             }));
+          if (remoteBrochures.length > 0) {
+            setBrochures(remoteBrochures);
           }
 
+          // 12. Sync Logo
           const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
           if (logoImg && logoImg.image_url) {
             setLogoUrl(logoImg.image_url);
