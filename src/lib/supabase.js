@@ -189,21 +189,28 @@ export function formatGoogleDriveUrl(url) {
   return cleanUrl;
 }
 
-// Helper to append cache-busting timestamp to URLs & convert Google Drive URLs
+// Helper to append cache-busting timestamp to image URLs & convert Google Drive URLs
 export function appendCacheBuster(url) {
   if (!url || typeof url !== 'string' || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
 
-  // Never append query parameter timestamps to video files as CDNs reject them
-  if (Boolean(url.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i))) {
+  // Never corrupt video URLs (YouTube, Vimeo, Google Drive, direct video files) with query parameter timestamps
+  if (
+    url.includes('youtube.com') ||
+    url.includes('youtu.be') ||
+    url.includes('vimeo.com') ||
+    url.includes('drive.google.com') ||
+    url.includes('googleusercontent.com') ||
+    url.includes('mixkit.co') ||
+    url.includes('pexels.com') ||
+    url.includes('cloudinary.com') ||
+    Boolean(url.match(/\.(mp4|webm|mov|m4v|ogg)(\?.*)?$/i))
+  ) {
     return formatGoogleDriveUrl(url);
   }
 
   const formatted = formatGoogleDriveUrl(url);
-  if (formatted.includes('drive.google.com/uc') || formatted.includes('googleusercontent.com')) {
-    return formatted;
-  }
   const timestamp = Date.now();
   const separator = formatted.includes('?') ? '&' : '?';
   return `${formatted}${separator}v=${timestamp}`;
@@ -606,13 +613,13 @@ export async function apiSaveHeroData(heroData) {
     throw new Error('Temporary local blob or base64 video cannot be saved to the central database. Please wait for cloud upload to finish or provide a public video URL.');
   }
 
-  const formattedUrl = heroData.url ? appendCacheBuster(heroData.url) : '';
+  const cleanUrl = heroData.url ? formatGoogleDriveUrl(heroData.url.trim()) : '';
   const heroTitle = heroData.title || 'Chitrakatha by Hemant';
   
   const payload = {
     id: 'hero-main',
     section: 'hero',
-    image_url: formattedUrl,
+    image_url: cleanUrl,
     storage_path: null,
     title: heroTitle,
     category: 'Hero',
@@ -622,7 +629,7 @@ export async function apiSaveHeroData(heroData) {
       title: heroTitle,
       subtitle: heroData.subtitle || '',
       tagline: heroData.tagline || 'LUXURY CINEMATIC PHOTOGRAPHY',
-      url: formattedUrl
+      url: cleanUrl
     },
     updated_at: new Date().toISOString()
   };
