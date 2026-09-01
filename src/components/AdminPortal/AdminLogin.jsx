@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { BUSINESS_INFO } from '../../data/initialData';
 
 export default function AdminLogin({ onLoginSuccess, onCancel }) {
-  const [email, setEmail] = useState('clicksbyhemant5564@gmail.com');
+  const [email, setEmail] = useState('techrevolutee@gmail.com');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
