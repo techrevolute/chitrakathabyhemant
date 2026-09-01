@@ -232,30 +232,10 @@ export default function App() {
           // 11. Sync Brochures
           const remoteBrochures = remoteImgs
             .filter(img => img.section === 'brochure' && img.is_active !== false)
-            .map(img => img.data || ({
-              id: img.id,
-              title: img.title || 'Service Offering',
-              category: img.category || 'Services',
-              image: img.image_url,
-              description: 'Service description.',
-              priceStarting: 'Contact for Quote'
-            }));
-          if (remoteServices.length > 0) {
-            setServices(remoteServices);
-          }
-
-          // Remote Categories Sync (Supabase is single source of truth)
-          const remoteCategories = remoteImgs
-            .filter(img => img.section === 'category' && img.is_active !== false)
-            .map(img => img.data || ({
-              id: img.id,
-              name: img.title || img.category,
-              slug: (img.title || img.category).toLowerCase().replace(/\s+/g, '-'),
-              coverImage: img.image_url,
-              hidden: false
-            }));
-          if (remoteCategories.length > 0) {
-            setCategories(remoteCategories);
+            .map(img => img.data)
+            .filter(Boolean);
+          if (remoteBrochures.length > 0) {
+            setBrochures(remoteBrochures);
           }
 
           // Remote Business Info & Global Settings Sync
@@ -265,11 +245,9 @@ export default function App() {
               ...prev,
               ...businessImg.data
             }));
-          if (remoteBrochures.length > 0) {
-            setBrochures(remoteBrochures);
           }
 
-          // 12. Sync Logo
+          // 13. Sync Logo
           const logoImg = remoteImgs.find(img => img.section === 'logo' && img.is_active !== false);
           if (logoImg && logoImg.image_url) {
             setLogoUrl(logoImg.image_url);
