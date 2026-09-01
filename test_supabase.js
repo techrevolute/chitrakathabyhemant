@@ -5,104 +5,65 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-async function runMasterTest() {
-  console.log('=== STEP 1: ADMIN AUTHENTICATION ===');
-  const { data: auth, error: authErr } = await supabase.auth.signInWithPassword({
-    email: 'techrevolutee@gmail.com',
-    password: 'admin@123'
-  });
-  if (authErr) {
-    console.error('Auth error:', authErr);
-    return;
-  }
-  console.log('Logged in as:', auth.user?.email);
-
-  console.log('\n=== STEP 2: SAVING ALL SECTIONS TO SUPABASE ===');
-  
-  // 1. Hero Save
-  const heroPayload = {
-    id: 'hero-main',
-    section: 'hero',
-    image_url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4',
-    title: 'SYNC TEST 001',
-    category: 'Hero',
-    display_order: 1,
-    is_active: true,
-    data: {
-      title: 'SYNC TEST 001',
-      subtitle: 'Luxury Cinematic Photography across Maharashtra',
-      tagline: 'PREMIUM WEDDING CINEMA',
-      url: 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4'
-    },
-    updated_at: new Date().toISOString()
-  };
-  const { data: heroSaved } = await supabase.from('site_images').upsert(heroPayload, { onConflict: 'id' }).select().single();
-  console.log('1. Hero Saved:', heroSaved.title);
-
-  // 2. About Me Save
-  const aboutPayload = {
-    id: 'about-main',
-    section: 'about',
-    image_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
-    title: 'Master Photographer Hemant',
-    category: 'About Me',
-    display_order: 1,
-    is_active: true,
-    data: {
-      ownerName: 'Master Photographer Hemant',
-      experience: '12+ Years',
-      story: 'Passionate story-teller preserving luxury weddings across Maharashtra.',
-      mission: 'To create timeless heirloom memories.',
-      vision: 'Setting the standard for wedding photography.'
-    },
-    updated_at: new Date().toISOString()
-  };
-  const { data: aboutSaved } = await supabase.from('site_images').upsert(aboutPayload, { onConflict: 'id' }).select().single();
-  console.log('2. About Saved:', aboutSaved.title);
-
-  // 3. Service Save
-  const svcPayload = {
-    id: 'svc-test-sync',
-    section: 'services',
-    image_url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=800',
-    title: 'Pre-Wedding Cinema 4K',
-    category: 'Services',
-    display_order: 1,
-    is_active: true,
-    data: {
-      id: 'svc-test-sync',
-      title: 'Pre-Wedding Cinema 4K',
-      description: 'Exclusive couple destination shoots with drone cinematography.',
-      priceStarting: '₹45,000'
-    },
-    updated_at: new Date().toISOString()
-  };
-  const { data: svcSaved } = await supabase.from('site_images').upsert(svcPayload, { onConflict: 'id' }).select().single();
-  console.log('3. Service Saved:', svcSaved.title);
-
-  console.log('\n=== STEP 3: PUBLIC / UNAUTHENTICATED CLIENT FETCH (SIMULATING HOMEPAGE ON REFRESH & OTHER DEVICES) ===');
-  const publicClient = createClient(supabaseUrl, supabaseAnonKey);
-  const { data: remoteImgs, error: fetchErr } = await publicClient
+async function simulateAppHydration() {
+  console.log('=== 1. PUBLIC BROWSER SENDS GET TO SUPABASE ===');
+  const { data: remoteImgs, error } = await supabase
     .from('site_images')
     .select('*')
     .eq('is_active', true)
     .order('display_order', { ascending: true });
 
-  if (fetchErr) {
-    console.error('Fetch error:', fetchErr);
+  if (error) {
+    console.error('Supabase query error:', error);
     return;
   }
+  console.log(`Supabase returned ${remoteImgs.length} rows.\n`);
 
-  console.log('Total Active Rows Retrieved by Public Client:', remoteImgs.length);
+  console.log('=== 2. APP.JSX HYDRATES REACT STATE ===');
+  
+  // 1. Hero
+  const heroRecord = remoteImgs.find(img => img.id === 'hero-main') ||
+    remoteImgs
+      .filter(img => img.section === 'hero' && img.is_active !== false)
+      .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0];
 
-  const heroRecord = remoteImgs.find(img => img.id === 'hero-main');
-  console.log('Public Hero Title:', heroRecord?.title, '=== "SYNC TEST 001" ?', heroRecord?.title === 'SYNC TEST 001');
+  let renderedHeroTitle = 'Default fallback';
+  if (heroRecord) {
+    const heroPayload = heroRecord.data || {};
+    const heroTitle = heroPayload.title || heroRecord.title;
+    const heroSubtitle = heroPayload.subtitle !== undefined ? heroPayload.subtitle : heroRecord.subtitle;
+    const heroUrl = heroPayload.url || heroRecord.image_url;
+    const heroTagline = heroPayload.tagline;
 
-  const aboutRecord = remoteImgs.find(img => img.id === 'about-main');
-  console.log('Public About Name:', aboutRecord?.data?.ownerName, '=== "Master Photographer Hemant" ?', aboutRecord?.data?.ownerName === 'Master Photographer Hemant');
+    const nextHeroState = {
+      title: heroTitle || 'Chitrakatha by Hemant',
+      subtitle: heroSubtitle !== undefined ? heroSubtitle : '',
+      tagline: heroTagline || 'LUXURY CINEMATIC PHOTOGRAPHY',
+      url: (heroUrl && !heroUrl.startsWith('blob:')) ? heroUrl : 'https://assets.mixkit.co/videos/preview/mixkit-wedding-couple-walking-and-holding-hands-43892-large.mp4',
+      ...heroPayload
+    };
 
-  const svcRecord = remoteImgs.find(img => img.id === 'svc-test-sync');
-  console.log('Public Service Title:', svcRecord?.title, '=== "Pre-Wedding Cinema 4K" ?', svcRecord?.title === 'Pre-Wedding Cinema 4K');
+    console.log('[REACT STATE: heroData]:', nextHeroState);
+    renderedHeroTitle = nextHeroState.title;
+  }
+
+  // 2. About Me
+  const aboutImg = remoteImgs.find(img => img.id === 'about-main') ||
+    remoteImgs.find(img => img.section === 'about' && img.is_active !== false);
+  let renderedAboutName = 'Default Hemant';
+  if (aboutImg) {
+    const aboutPayload = aboutImg.data || {};
+    renderedAboutName = aboutImg.title || aboutPayload.ownerName;
+    console.log('[REACT STATE: aboutData]:', { ownerName: renderedAboutName, story: aboutPayload.story });
+  }
+
+  console.log('\n=== 3. WHAT HOMEPAGE COMPONENT RENDERS TO DOM ===');
+  console.log('Hero <h1> rendered text:', renderedHeroTitle);
+  console.log('About Owner rendered text:', renderedAboutName);
+
+  console.log('\n=== 4. VERIFICATION ===');
+  console.log('Does Hero match "VERCEL-SUPABASE-SYNC-TEST-999"?', renderedHeroTitle === 'VERCEL-SUPABASE-SYNC-TEST-999');
+  console.log('Does About match "Master Photographer Hemant"?', renderedAboutName === 'Master Photographer Hemant');
 }
 
-runMasterTest();
+simulateAppHydration();

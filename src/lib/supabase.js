@@ -522,7 +522,7 @@ export async function apiFetchSiteImages(section = null) {
   }
 
   try {
-    let query = supabase.from('site_images').select('*').eq('is_active', true).order('display_order', { ascending: true });
+    let query = supabase.from('site_images').select('*').order('display_order', { ascending: true });
     if (section) {
       query = query.eq('section', section);
     }
@@ -531,7 +531,7 @@ export async function apiFetchSiteImages(section = null) {
       console.error('apiFetchSiteImages database error:', error.message);
       return [];
     }
-    return data || [];
+    return (data || []).filter(item => item.is_active !== false);
   } catch (err) {
     console.error('apiFetchSiteImages exception:', err);
     return [];
